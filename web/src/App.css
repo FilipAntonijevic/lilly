@@ -363,6 +363,18 @@
   background: transparent;
   position: relative;
   padding: 0;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  user-select: none;
+  box-shadow: none;
+}
+
+.shutter-btn:focus,
+.shutter-btn:focus-visible,
+.shutter-btn:active {
+  outline: none;
+  box-shadow: none;
 }
 
 .shutter-btn:disabled {
