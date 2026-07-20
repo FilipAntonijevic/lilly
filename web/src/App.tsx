@@ -205,7 +205,6 @@ export default function App() {
           <LanguageToggle className="lang-toggle-landing" />
           <header className="landing-top">
             <p className="brand">Lilly</p>
-            <p className="landing-greeting">{t('landing.greeting')}</p>
             <h1>{t('landing.headline')}</h1>
             <p className="lead">{t('landing.lead')}</p>
           </header>
