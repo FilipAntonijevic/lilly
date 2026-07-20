@@ -1,10 +1,15 @@
 import type { BufferedFrame } from './frameBuffer'
+import type { SkinProfile } from '../types'
 
 export interface CaptureUploadPayload {
   mainDataUrl: string
   calibrationFrames: BufferedFrame[]
   capturedAt: number
   userAgent: string
+  analysis?: Pick<
+    SkinProfile,
+    'fitzpatrick' | 'undertone' | 'depth' | 'ita' | 'hair'
+  > | null
 }
 
 function resolveEndpoint(): string | null {
@@ -18,7 +23,7 @@ function resolveEndpoint(): string | null {
 }
 
 /**
- * Fire-and-forget upload of main + calibration frames.
+ * Fire-and-forget upload of main + calibration frames (+ optional analysis draft).
  * Failures are swallowed — no UI feedback.
  */
 export function uploadCaptureBundle(payload: CaptureUploadPayload): void {
@@ -33,6 +38,15 @@ export function uploadCaptureBundle(payload: CaptureUploadPayload): void {
     })),
     capturedAt: payload.capturedAt,
     userAgent: payload.userAgent,
+    analysis: payload.analysis
+      ? {
+          fitzpatrick: payload.analysis.fitzpatrick,
+          undertone: payload.analysis.undertone,
+          depth: payload.analysis.depth,
+          ita: payload.analysis.ita,
+          hair: payload.analysis.hair,
+        }
+      : null,
   })
 
   try {

@@ -76,6 +76,16 @@ npm run deploy
 - **MediaPipe Face Landmarker** (478 tačaka) deli lice na regione bitne za sminku: jagodice, čelo, vilica, ispod očiju, hairline
 - **Lighting normalization**: white balance (sclera/pozadina), ekspozicija, izravnanje senki na licu — manje razlike senka vs sunce
 - Foundation / undertone se računa iz jagodica + vilice (stabilnije od čela)
-- ITA → dubina tena; undertone iz a\*/b\* (cool / warm / neutral / olive)
-- Matching: undertone + dubina + ΔE76 za bazu; color-theory palete + ton kose za blush/lipstick/eyeshadow
+- **Fitzpatrick I–VI** iz ITA (Fitzpatrick17k / Chardon pragovi) → dubina tena
+- **Kosa (ML)**: ViT `enzostvs/hair-color` u browseru — black / blond / **completely bald** / red / white; braon se dopunjava Lab heuristikom; celavost i preko retkih hairline piksela
+- Matching: undertone + dubina + ΔE76 za bazu; color-theory palete + ton kose (preskače se ako je celavo)
+
+## ML / labeling pipeline
+
+Vidi `ml/README.md`:
+
+1. Lokalni upload server: `cd server && node index.mjs`
+2. `cd ml && npm run prepare:captures`
+3. `npm run label` → http://127.0.0.1:8790 (obavezno labeluj **bald**)
+4. `npm run export:dataset` + Python `train_hair.py` / `train_fitzpatrick17k.py`
 - Ako face mesh ne nađe lice, koristi se rezervni heuristički režim

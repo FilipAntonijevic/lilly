@@ -1,0 +1,13 @@
+﻿{
+  "version": 1,
+  "hair_family": ["blonde", "light_brown", "brown", "black", "red", "gray", "bald", "unknown"],
+  "hair_temperature": ["cool", "warm", "neutral"],
+  "fitzpatrick": [1, 2, 3, 4, 5, 6],
+  "undertone": ["cool", "warm", "neutral", "olive"],
+  "skin_depth": ["very_light", "light", "medium", "tan", "deep", "very_deep"],
+  "notes": {
+    "bald": "Use hair_family=bald when scalp is clearly visible / little or no hair.",
+    "fitzpatrick": "Fitzpatrick Skin Type I–VI as in Fitzpatrick17k (Groh et al.).",
+    "source": "Labels apply to main.jpg; frames are for lighting robustness."
+  }
+}

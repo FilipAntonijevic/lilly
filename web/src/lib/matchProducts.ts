@@ -67,8 +67,13 @@ function hairHarmony(product: MakeupProduct, skin: SkinProfile): number {
     return 0.5
   }
 
-  const { temperature, family } = skin.hair
+  const { temperature, family, bald } = skin.hair
   const tags = product.paletteTags.map((t) => t.toLowerCase())
+
+  // Bald / unknown: skip hair harmony — rely on undertone palettes only
+  if (bald || family === 'bald' || family === 'unknown') {
+    return 0.5
+  }
 
   let score = 0.5
   if (temperature === 'warm' && tags.some((t) => ['coral', 'peach', 'bronze', 'copper', 'gold', 'brick'].includes(t))) {

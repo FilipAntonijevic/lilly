@@ -14,8 +14,12 @@ export type HairFamily =
   | 'black'
   | 'red'
   | 'gray'
+  | 'bald'
   | 'unknown'
 export type HairTemperature = 'cool' | 'warm' | 'neutral'
+
+/** Fitzpatrick Skin Type I–VI (Fitzpatrick17k scale). */
+export type FitzpatrickType = 1 | 2 | 3 | 4 | 5 | 6
 
 export type ProductCategory =
   | 'foundation'
@@ -60,12 +64,18 @@ export interface SkinProfile {
   hex: string
   ita: number
   depth: SkinDepth
+  /** Fitzpatrick Skin Type from ITA (Fitzpatrick17k-aligned thresholds) */
+  fitzpatrick: FitzpatrickType
+  fitzpatrickSource: 'ita' | 'ml'
   undertone: Undertone
   undertoneConfidence: number
   hair: {
     family: HairFamily
     temperature: HairTemperature
     hex: string
+    bald: boolean
+    confidence: number
+    source: 'ml' | 'heuristic' | 'ml+heuristic'
   }
   sampledPixels: number
   /** True when MediaPipe Face Landmarker located facial landmarks */

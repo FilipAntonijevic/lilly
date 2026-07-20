@@ -4,6 +4,7 @@ import { ResultsPanel } from './components/ResultsPanel'
 import { loadActiveCatalog } from './data/catalog'
 import { analyzeCapturedImage } from './lib/analyzeFace'
 import { uploadCaptureBundle } from './lib/calibrationUpload'
+import { preloadHairMl } from './lib/hairMl'
 import { buildFaceRoutine } from './lib/faceRoutine'
 import type {
   AppPhase,
@@ -41,6 +42,7 @@ export default function App() {
 
   useEffect(() => {
     void loadActiveCatalog().then(setCatalog)
+    preloadHairMl()
   }, [])
 
   function resetToLanding() {
@@ -80,13 +82,7 @@ export default function App() {
     const analysisId = ++analysisIdRef.current
     const canvas = bundle.main
     const mainDataUrl = canvas.toDataURL('image/jpeg', 0.92)
-
-    uploadCaptureBundle({
-      mainDataUrl,
-      calibrationFrames: bundle.calibrationFrames,
-      capturedAt: Date.now(),
-      userAgent: navigator.userAgent,
-    })
+    const capturedAt = Date.now()
 
     setPhase('analyzing')
     setAnalyzingLabel('Detektujem lice…')
@@ -94,9 +90,23 @@ export default function App() {
 
     void (async () => {
       try {
-        setAnalyzingLabel('Merim regione lica…')
+        setAnalyzingLabel('Merim regione lica i kosu…')
         const skin = await analyzeCapturedImage(canvas)
         if (analysisId !== analysisIdRef.current) return
+
+        uploadCaptureBundle({
+          mainDataUrl,
+          calibrationFrames: bundle.calibrationFrames,
+          capturedAt,
+          userAgent: navigator.userAgent,
+          analysis: {
+            fitzpatrick: skin.fitzpatrick,
+            undertone: skin.undertone,
+            depth: skin.depth,
+            ita: skin.ita,
+            hair: skin.hair,
+          },
+        })
 
         setAnalyzingLabel('Biram proizvode po zonama…')
         const active = catalog ?? (await loadActiveCatalog())
@@ -109,6 +119,13 @@ export default function App() {
         writeHistory('results', 'replace')
       } catch {
         if (analysisId !== analysisIdRef.current) return
+        // Still persist frames even if analysis fails
+        uploadCaptureBundle({
+          mainDataUrl,
+          calibrationFrames: bundle.calibrationFrames,
+          capturedAt,
+          userAgent: navigator.userAgent,
+        })
         setPhase('camera')
       }
     })()

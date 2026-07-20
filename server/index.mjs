@@ -1,5 +1,5 @@
 import { createServer } from 'node:http'
-import { mkdir, writeFile } from 'node:fs/promises'
+import { mkdir, writeFile, readdir, readFile, access } from 'node:fs/promises'
 import { join } from 'node:path'
 
 const PORT = Number(process.env.PORT || 8787)
@@ -10,7 +10,7 @@ function sendJson(res, status, body) {
   res.writeHead(status, {
     'Content-Type': 'application/json',
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type',
   })
   res.end(payload)
@@ -22,11 +22,34 @@ function dataUrlToBuffer(dataUrl) {
   return Buffer.from(m[2], 'base64')
 }
 
+async function exists(p) {
+  try {
+    await access(p)
+    return true
+  } catch {
+    return false
+  }
+}
+
 await mkdir(OUT_DIR, { recursive: true })
 
 const server = createServer(async (req, res) => {
   if (req.method === 'OPTIONS') {
     sendJson(res, 204, {})
+    return
+  }
+
+  if (req.method === 'GET' && req.url === '/health') {
+    sendJson(res, 200, { ok: true })
+    return
+  }
+
+  if (req.method === 'GET' && req.url === '/captures') {
+    const ids = (await readdir(OUT_DIR, { withFileTypes: true }))
+      .filter((d) => d.isDirectory())
+      .map((d) => d.name)
+      .sort()
+    sendJson(res, 200, { ok: true, ids })
     return
   }
 
@@ -66,6 +89,30 @@ const server = createServer(async (req, res) => {
           capturedAt: body.capturedAt,
           userAgent: body.userAgent,
           frameCount: saved,
+          // Optional client-side analysis snapshot for the labeling pipeline
+          analysis: body.analysis ?? null,
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    )
+
+    // Seed a draft label for ml/prepare-captures
+    await writeFile(
+      join(dir, 'label.json'),
+      JSON.stringify(
+        {
+          id,
+          hair_family: body.analysis?.hair?.family ?? null,
+          hair_temperature: body.analysis?.hair?.temperature ?? null,
+          bald: body.analysis?.hair?.bald ?? null,
+          fitzpatrick: body.analysis?.fitzpatrick ?? null,
+          undertone: body.analysis?.undertone ?? null,
+          skin_depth: body.analysis?.depth ?? null,
+          notes: '',
+          status: 'draft',
+          createdAt: new Date().toISOString(),
         },
         null,
         2,
@@ -74,6 +121,34 @@ const server = createServer(async (req, res) => {
     )
 
     sendJson(res, 200, { ok: true, id, frames: saved })
+    return
+  }
+
+  const labelMatch = req.url && /^\/captures\/([^/]+)\/label$/.exec(req.url)
+  if (labelMatch && req.method === 'POST') {
+    const id = decodeURIComponent(labelMatch[1])
+    const dir = join(OUT_DIR, id)
+    if (!(await exists(dir))) {
+      sendJson(res, 404, { ok: false, error: 'not_found' })
+      return
+    }
+    const chunks = []
+    for await (const chunk of req) chunks.push(chunk)
+    let body
+    try {
+      body = JSON.parse(Buffer.concat(chunks).toString('utf8'))
+    } catch {
+      sendJson(res, 400, { ok: false, error: 'invalid_json' })
+      return
+    }
+    const path = join(dir, 'label.json')
+    const prev = (await exists(path))
+      ? JSON.parse(await readFile(path, 'utf8'))
+      : { id }
+    const next = { ...prev, ...body, id, updatedAt: new Date().toISOString() }
+    if (next.hair_family === 'bald') next.bald = true
+    await writeFile(path, JSON.stringify(next, null, 2), 'utf8')
+    sendJson(res, 200, { ok: true, label: next })
     return
   }
 

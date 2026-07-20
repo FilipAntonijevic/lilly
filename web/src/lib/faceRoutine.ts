@@ -6,7 +6,11 @@ import type {
   ProductCategory,
   SkinProfile,
 } from '../types'
-import { deltaE76, hexToLab, itaToDepth, computeIta } from './color'
+import { deltaE76, hexToLab, computeIta } from './color'
+import {
+  itaToFitzpatrick,
+  resolveDepthFromItaAndFitzpatrick,
+} from './fitzpatrick'
 import { matchProducts } from './matchProducts'
 
 function regionLab(regions: FaceRegionSample[], id: FaceRegionSample['id']): LabColor | null {
@@ -24,10 +28,14 @@ function averageLab(labs: LabColor[]): LabColor | null {
 
 function withReferenceLab(skin: SkinProfile, lab: LabColor | null): SkinProfile {
   if (!lab) return skin
+  const ita = computeIta(lab)
+  const fitzpatrick = itaToFitzpatrick(ita)
   return {
     ...skin,
     lab,
-    depth: itaToDepth(computeIta(lab)),
+    ita,
+    fitzpatrick,
+    depth: resolveDepthFromItaAndFitzpatrick(ita, fitzpatrick),
   }
 }
 
@@ -202,7 +210,9 @@ export function buildFaceRoutine(
       faceTarget: 'Usne',
       category: 'lipstick',
       match: lipstick,
-      tip: 'Ruž usklađen sa undertone-om kože i tonom kose.',
+      tip: skin.hair.bald
+        ? 'Ruž usklađen sa undertone-om kože.'
+        : 'Ruž usklađen sa undertone-om kože i tonom kose.',
     },
     {
       zoneId: 'eyes',

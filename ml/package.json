@@ -1,0 +1,15 @@
+﻿{
+  "name": "lilly-ml",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "prepare:captures": "node scripts/prepare-captures.mjs",
+    "export:dataset": "node scripts/export-dataset.mjs",
+    "infer:hair": "node scripts/infer-hair.mjs",
+    "label": "node scripts/label-server.mjs"
+  },
+  "dependencies": {
+    "@huggingface/transformers": "^3.8.1"
+  }
+}

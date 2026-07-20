@@ -9,16 +9,21 @@ import {
   classifyUndertone,
   computeIta,
   isLikelySkinPixel,
-  itaToDepth,
   rgbToHex,
   rgbToLab,
 } from './color'
+import { cropFaceForMl } from './faceCrop'
 import {
   MAKEUP_REGIONS,
   detectFaceLandmarks,
   type Landmark,
   type MakeupRegionKey,
 } from './faceLandmarker'
+import { classifyHairMl } from './hairMl'
+import {
+  itaToFitzpatrick,
+  resolveDepthFromItaAndFitzpatrick,
+} from './fitzpatrick'
 import { correctLighting } from './lighting'
 import type { LightingInfo } from '../types'
 
@@ -265,13 +270,28 @@ function sampleHairFromLandmarks(
   return { lab: rgbToLab(r, g, b), rgb: [r, g, b], count }
 }
 
-function classifyHair(
+function classifyHairHeuristic(
   lab: LabColor,
   rgb: [number, number, number],
-): { family: HairFamily; temperature: HairTemperature; hex: string } {
+  hairPixelCount: number,
+  expectedHairPixels: number,
+): SkinProfile['hair'] {
   const hex = rgbToHex(rgb[0], rgb[1], rgb[2])
   const chroma = Math.hypot(lab.a, lab.b)
   const warmYellow = lab.b > lab.a + 2
+  const sparseHair =
+    expectedHairPixels > 0 && hairPixelCount < expectedHairPixels * 0.12
+
+  if (sparseHair) {
+    return {
+      family: 'bald',
+      temperature: 'neutral',
+      hex: '#c4a484',
+      bald: true,
+      confidence: 0.55,
+      source: 'heuristic',
+    }
+  }
 
   let family: HairFamily = 'unknown'
   if (lab.L < 20) family = 'black'
@@ -286,7 +306,50 @@ function classifyHair(
   if (lab.b > lab.a + 3) temperature = 'warm'
   else if (lab.a >= lab.b + 1) temperature = 'cool'
 
-  return { family, temperature, hex }
+  return {
+    family,
+    temperature,
+    hex,
+    bald: false,
+    confidence: hairPixelCount > 40 ? 0.5 : 0.3,
+    source: 'heuristic',
+  }
+}
+
+function expectedHairSampleBudget(width: number, height: number): number {
+  const radius = Math.max(10, Math.round(Math.min(width, height) * 0.035))
+  // ~hairline landmarks × disk area (rough upper bound)
+  return MAKEUP_REGIONS.hairline.length * Math.PI * radius * radius * 0.35
+}
+
+function withSkinMetrics(
+  lab: LabColor,
+  rgb: [number, number, number],
+  undertone: SkinProfile['undertone'],
+  confidence: number,
+  hair: SkinProfile['hair'],
+  sampledPixels: number,
+  usedFaceMesh: boolean,
+  regions: FaceRegionSample[],
+  lighting: LightingInfo,
+): SkinProfile {
+  const ita = computeIta(lab)
+  const fitzpatrick = itaToFitzpatrick(ita)
+  return {
+    lab,
+    hex: rgbToHex(rgb[0], rgb[1], rgb[2]),
+    ita,
+    depth: resolveDepthFromItaAndFitzpatrick(ita, fitzpatrick),
+    fitzpatrick,
+    fitzpatrickSource: 'ita',
+    undertone,
+    undertoneConfidence: confidence,
+    hair,
+    sampledPixels,
+    usedFaceMesh,
+    regions,
+    lighting,
+  }
 }
 
 const REGION_META: Record<
@@ -404,12 +467,15 @@ function analyzeWithLandmarks(
   const g = gSum / total
   const b = bSum / total
   const lab = rgbToLab(r, g, b)
-  const ita = computeIta(lab)
-  const depth = itaToDepth(ita)
   const { undertone, confidence } = classifyUndertone(lab)
 
   const hairSample = sampleHairFromLandmarks(data, width, height, landmarks)
-  const hair = classifyHair(hairSample.lab, hairSample.rgb)
+  const hair = classifyHairHeuristic(
+    hairSample.lab,
+    hairSample.rgb,
+    hairSample.count,
+    expectedHairSampleBudget(width, height),
+  )
 
   const underEyeCount = underEyeLeft.count + underEyeRight.count
   const underEye =
@@ -451,26 +517,24 @@ function analyzeWithLandmarks(
     regions.push(toRegionSample('underEye', 'Ispod očiju', underEye))
   }
   regions.push(
-    toRegionSample('hair', 'Kosa', {
+    toRegionSample('hair', hair.bald ? 'Kosa (celavo)' : 'Kosa', {
       lab: hairSample.lab,
       rgb: hairSample.rgb,
       count: hairSample.count,
     }),
   )
 
-  return {
+  return withSkinMetrics(
     lab,
-    hex: rgbToHex(r, g, b),
-    ita,
-    depth,
+    [r, g, b],
     undertone,
-    undertoneConfidence: confidence,
+    confidence,
     hair,
-    sampledPixels: total,
-    usedFaceMesh: true,
-    regions: regions.filter((region) => region.pixelCount > 0),
+    total,
+    true,
+    regions.filter((region) => region.pixelCount > 0),
     lighting,
-  }
+  )
 }
 
 /** Heuristic fallback when Face Landmarker cannot find a face. */
@@ -517,7 +581,6 @@ function analyzeHeuristic(
   const g = gSum / Math.max(total, 1)
   const b = bSum / Math.max(total, 1)
   const lab = rgbToLab(r, g, b)
-  const ita = computeIta(lab)
   const { undertone, confidence } = classifyUndertone(lab)
 
   const hairRegion = clampRegion(
@@ -526,27 +589,31 @@ function analyzeHeuristic(
     height,
   )
   const hairSample = sampleMeanLab(data, width, hairRegion, false)
-  const hair = classifyHair(hairSample.lab, hairSample.rgb)
+  const hair = classifyHairHeuristic(
+    hairSample.lab,
+    hairSample.rgb,
+    hairSample.count,
+    expectedHairSampleBudget(width, height),
+  )
 
-  return {
+  return withSkinMetrics(
     lab,
-    hex: rgbToHex(r, g, b),
-    ita,
-    depth: itaToDepth(ita),
+    [r, g, b],
     undertone,
-    undertoneConfidence: confidence,
+    confidence,
     hair,
-    sampledPixels: total,
-    usedFaceMesh: false,
-    regions: [],
+    total,
+    false,
+    [],
     lighting,
-  }
+  )
 }
 
 /**
  * Analyze a captured selfie with MediaPipe Face Landmarker when possible.
  * Samples makeup-relevant regions: cheeks, forehead, jaw, under-eye, hairline.
  * Lighting is normalized first so shade/sun selfies are closer.
+ * Hair color uses ViT ML (incl. bald); Fitzpatrick from ITA (Fitzpatrick17k thresholds).
  */
 export async function analyzeCapturedImage(
   canvas: HTMLCanvasElement,
@@ -568,13 +635,51 @@ export async function analyzeCapturedImage(
 
   const { data, lighting } = correctLighting(raw, width, height, landmarks)
 
+  let profile: SkinProfile
   if (landmarks) {
     try {
-      return analyzeWithLandmarks(data, width, height, landmarks, lighting)
+      profile = analyzeWithLandmarks(data, width, height, landmarks, lighting)
     } catch {
-      // fall through to heuristic on corrected buffer
+      profile = analyzeHeuristic(data, width, height, lighting)
+    }
+  } else {
+    profile = analyzeHeuristic(data, width, height, lighting)
+  }
+
+  const hairRegion = profile.regions.find((r) => r.id === 'hair')
+  const crop = cropFaceForMl(canvas, landmarks)
+  const ml = await classifyHairMl(
+    crop.toDataURL('image/jpeg', 0.9),
+    hairRegion?.lab ?? profile.lab,
+    hairRegion
+      ? [
+          parseInt(hairRegion.hex.slice(1, 3), 16),
+          parseInt(hairRegion.hex.slice(3, 5), 16),
+          parseInt(hairRegion.hex.slice(5, 7), 16),
+        ]
+      : [90, 70, 55],
+    hairRegion?.pixelCount ?? 0,
+    expectedHairSampleBudget(width, height),
+  )
+
+  if (ml) {
+    profile = {
+      ...profile,
+      hair: {
+        family: ml.family,
+        temperature: ml.temperature,
+        hex: ml.hex,
+        bald: ml.bald,
+        confidence: ml.confidence,
+        source: ml.source,
+      },
+      regions: profile.regions.map((region) =>
+        region.id === 'hair'
+          ? { ...region, label: ml.bald ? 'Kosa (celavo)' : 'Kosa', hex: ml.hex }
+          : region,
+      ),
     }
   }
 
-  return analyzeHeuristic(data, width, height, lighting)
+  return profile
 }

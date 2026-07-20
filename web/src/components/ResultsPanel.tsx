@@ -1,5 +1,5 @@
 import type { FaceZoneMatch, SkinProfile } from '../types'
-import { depthLabel, hairLabel, undertoneLabel } from '../lib/labels'
+import { depthLabel, fitzpatrickLabel, hairLabel, undertoneLabel } from '../lib/labels'
 import { ProductCard } from './ProductCard'
 
 interface ResultsPanelProps {
@@ -48,6 +48,10 @@ export function ResultsPanel({
               <strong>{depthLabel(profile.depth)}</strong>
             </li>
             <li>
+              <span>Fitzpatrick</span>
+              <strong>{fitzpatrickLabel(profile.fitzpatrick)}</strong>
+            </li>
+            <li>
               <span>Undertone</span>
               <strong>{undertoneLabel(profile.undertone)}</strong>
             </li>
@@ -58,7 +62,10 @@ export function ResultsPanel({
             <li>
               <span>Kosa</span>
               <strong>
-                {hairLabel(profile.hair.family)} · {profile.hair.temperature}
+                {profile.hair.bald
+                  ? 'Celavo'
+                  : `${hairLabel(profile.hair.family)} · ${profile.hair.temperature}`}
+                {profile.hair.source.startsWith('ml') ? ' · ML' : ''}
               </strong>
             </li>
           </ul>

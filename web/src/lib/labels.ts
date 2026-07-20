@@ -1,4 +1,5 @@
-import type { HairFamily, SkinDepth, Undertone } from '../types'
+import type { FitzpatrickType, HairFamily, SkinDepth, Undertone } from '../types'
+import { FITZPATRICK_LABELS } from './fitzpatrick'
 
 export function depthLabel(depth: SkinDepth): string {
   const map: Record<SkinDepth, string> = {
@@ -30,7 +31,12 @@ export function hairLabel(family: HairFamily): string {
     black: 'Crna',
     red: 'Crvena',
     gray: 'Seda / siva',
+    bald: 'Celavo',
     unknown: 'Nedefinisano',
   }
   return map[family]
+}
+
+export function fitzpatrickLabel(type: FitzpatrickType): string {
+  return FITZPATRICK_LABELS[type]
 }
