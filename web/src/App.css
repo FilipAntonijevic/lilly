@@ -475,11 +475,15 @@
 }
 
 .product-price {
-  margin: 0.35rem 0 0;
+  margin: 0.4rem 0 0;
   font-family: var(--font-display);
   font-weight: 700;
-  font-size: 1.05rem;
-  color: var(--ink);
+  font-size: 1.15rem;
+  color: var(--blush-deep);
+}
+
+.zone-product-card.static {
+  cursor: default;
 }
 
 .zone-empty {

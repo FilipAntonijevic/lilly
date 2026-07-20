@@ -1,5 +1,6 @@
 import type { FaceZoneMatch, SkinProfile } from '../types'
 import { depthLabel, hairLabel, undertoneLabel } from '../lib/labels'
+import { ProductCard } from './ProductCard'
 
 interface ResultsPanelProps {
   photoUrl: string
@@ -8,15 +9,6 @@ interface ResultsPanelProps {
   usingDemo: boolean
   catalogCount: number
   onRetake: () => void
-}
-
-function formatPriceRsd(price?: number): string | null {
-  if (typeof price !== 'number' || Number.isNaN(price)) return null
-  return (
-    new Intl.NumberFormat('sr-RS', {
-      maximumFractionDigits: 0,
-    }).format(price) + ' RSD'
-  )
 }
 
 export function ResultsPanel({
@@ -128,52 +120,10 @@ export function ResultsPanel({
                 <p className="zone-tip">{zone.tip}</p>
 
                 {product ? (
-                  <a
-                    className="zone-product-card"
-                    href={product.url || undefined}
-                    target="_blank"
-                    rel="noreferrer"
-                    aria-label={`${product.name} na dm.rs`}
-                  >
-                    <div className="product-media">
-                      {product.imageUrl ? (
-                        <img
-                          className="product-image"
-                          src={product.imageUrl}
-                          alt={product.name}
-                          loading="lazy"
-                        />
-                      ) : (
-                        <span
-                          className="product-swatch large"
-                          style={{ background: product.shadeHex }}
-                          aria-hidden="true"
-                        />
-                      )}
-                      <span
-                        className="shade-dot"
-                        style={{ background: product.shadeHex }}
-                        title={product.shadeHex}
-                        aria-hidden="true"
-                      />
-                    </div>
-                    <div className="match-meta">
-                      <p className="product-name">{product.name}</p>
-                      <p className="product-brand">
-                        {product.brand}
-                        {product.shadeName ? ` · nijansa ${product.shadeName}` : ''}
-                      </p>
-                      {formatPriceRsd(product.priceRsd) && (
-                        <p className="product-price">
-                          {formatPriceRsd(product.priceRsd)}
-                        </p>
-                      )}
-                      <p className="product-reason">
-                        {zone.match?.reasons[0]}
-                      </p>
-                      <span className="product-link">Pogledaj na dm.rs →</span>
-                    </div>
-                  </a>
+                  <ProductCard
+                    product={product}
+                    reason={zone.match?.reasons[0]}
+                  />
                 ) : (
                   <p className="zone-empty">Nema proizvoda u ovoj kategoriji.</p>
                 )}

@@ -5,23 +5,9 @@ let cached: { products: MakeupProduct[]; usingDemo: boolean } | null = null
 let loading: Promise<{ products: MakeupProduct[]; usingDemo: boolean }> | null =
   null
 
-async function fetchStoreCatalog(): Promise<MakeupProduct[]> {
-  try {
-    const res = await fetch(`${import.meta.env.BASE_URL}products.json`, {
-      cache: 'no-cache',
-    })
-    if (!res.ok) return []
-    const data = (await res.json()) as MakeupProduct[]
-    return Array.isArray(data) ? data : []
-  } catch {
-    return []
-  }
-}
-
 /**
- * Aktivni katalog za matching:
- * - products.json (dm.rs scrape) ako ima stavke
- * - inače demo katalog
+ * DM katalog se učitava kao bundlovani JSON chunk (imageUrl, priceRsd, url uvek tu).
+ * Ne zavisi od runtime fetch-a /products.json.
  */
 export async function loadActiveCatalog(): Promise<{
   products: MakeupProduct[]
@@ -30,11 +16,16 @@ export async function loadActiveCatalog(): Promise<{
   if (cached) return cached
   if (!loading) {
     loading = (async () => {
-      const store = await fetchStoreCatalog()
-      cached =
-        store.length > 0
-          ? { products: store, usingDemo: false }
-          : { products: DEMO_CATALOG, usingDemo: true }
+      try {
+        const mod = await import('./products.json')
+        const store = (mod.default ?? mod) as MakeupProduct[]
+        cached =
+          Array.isArray(store) && store.length > 0
+            ? { products: store, usingDemo: false }
+            : { products: DEMO_CATALOG, usingDemo: true }
+      } catch {
+        cached = { products: DEMO_CATALOG, usingDemo: true }
+      }
       return cached
     })()
   }
