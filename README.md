@@ -66,6 +66,7 @@ npm run deploy
 ## Algoritam (MVP)
 
 - **MediaPipe Face Landmarker** (478 tačaka) deli lice na regione bitne za sminku: jagodice, čelo, vilica, ispod očiju, hairline
+- **Lighting normalization**: white balance (sclera/pozadina), ekspozicija, izravnanje senki na licu — manje razlike senka vs sunce
 - Foundation / undertone se računa iz jagodica + vilice (stabilnije od čela)
 - ITA → dubina tena; undertone iz a\*/b\* (cool / warm / neutral / olive)
 - Matching: undertone + dubina + ΔE76 za bazu; color-theory palete + ton kose za blush/lipstick/eyeshadow

@@ -111,7 +111,9 @@ export function CameraStage({ onCapture, disabled }: CameraStageProps) {
             <span className="shutter-core" />
           </button>
           <p className="camera-hint">
-            {ready ? 'Poravnaj lice u okvir i pritisni dugme' : 'Pokrećem kameru…'}
+            {ready
+              ? 'Ravnomerno svetlo na licu (bez jake senke), pa uslikaj'
+              : 'Pokrećem kameru…'}
           </p>
         </div>
       )}

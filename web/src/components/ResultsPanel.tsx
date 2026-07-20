@@ -35,6 +35,9 @@ export function ResultsPanel({
               ? 'Face mesh: detektovani regioni (jagodice, čelo, vilica…)'
               : 'Face mesh nije detektovao lice — korišćen je rezervni režim'}
           </p>
+          <p className={`lighting-note quality-${profile.lighting.quality}`}>
+            {profile.lighting.note}
+          </p>
           <div className="swatch-row">
             <span className="swatch" style={{ background: profile.hex }} title="Koža" />
             <span

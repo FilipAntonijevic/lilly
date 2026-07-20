@@ -285,10 +285,29 @@
 }
 
 .mesh-status {
-  margin: -0.35rem 0 1rem;
+  margin: -0.35rem 0 0.55rem;
   font-size: 0.9rem;
   color: var(--ink-soft);
   line-height: 1.4;
+}
+
+.lighting-note {
+  margin: 0 0 1rem;
+  font-size: 0.88rem;
+  line-height: 1.4;
+  padding: 0.65rem 0.75rem;
+  border-left: 3px solid var(--blush-deep);
+  background: rgba(232, 160, 144, 0.14);
+}
+
+.lighting-note.quality-good {
+  border-left-color: #6a8f6a;
+  background: rgba(106, 143, 106, 0.12);
+}
+
+.lighting-note.quality-poor {
+  border-left-color: #b45a4a;
+  background: rgba(180, 90, 74, 0.12);
 }
 
 .swatch-row {

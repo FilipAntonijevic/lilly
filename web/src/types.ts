@@ -47,6 +47,14 @@ export interface FaceRegionSample {
   pixelCount: number
 }
 
+export interface LightingInfo {
+  corrected: boolean
+  quality: 'good' | 'fair' | 'poor'
+  note: string
+  illuminantSource: 'scene' | 'fallback' | 'none'
+  exposureGain: number
+}
+
 export interface SkinProfile {
   lab: LabColor
   hex: string
@@ -64,6 +72,7 @@ export interface SkinProfile {
   usedFaceMesh: boolean
   /** Per-region color samples (cheeks, forehead, jaw, …) */
   regions: FaceRegionSample[]
+  lighting: LightingInfo
 }
 
 export interface MakeupProduct {

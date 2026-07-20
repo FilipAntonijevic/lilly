@@ -19,6 +19,8 @@ import {
   type Landmark,
   type MakeupRegionKey,
 } from './faceLandmarker'
+import { correctLighting } from './lighting'
+import type { LightingInfo } from '../types'
 
 interface SampleRegion {
   x0: number
@@ -316,6 +318,7 @@ function analyzeWithLandmarks(
   width: number,
   height: number,
   landmarks: Landmark[],
+  lighting: LightingInfo,
 ): SkinProfile {
   const radius = Math.max(8, Math.round(Math.min(width, height) * 0.028))
   const skinPred = (r: number, g: number, b: number) => isLikelySkinPixel(r, g, b)
@@ -466,6 +469,7 @@ function analyzeWithLandmarks(
     sampledPixels: total,
     usedFaceMesh: true,
     regions: regions.filter((region) => region.pixelCount > 0),
+    lighting,
   }
 }
 
@@ -474,6 +478,7 @@ function analyzeHeuristic(
   data: Uint8ClampedArray,
   width: number,
   height: number,
+  lighting: LightingInfo,
 ): SkinProfile {
   const regions = [
     clampRegion({ x0: 0.22, y0: 0.38, x1: 0.38, y1: 0.58 }, width, height),
@@ -534,12 +539,14 @@ function analyzeHeuristic(
     sampledPixels: total,
     usedFaceMesh: false,
     regions: [],
+    lighting,
   }
 }
 
 /**
  * Analyze a captured selfie with MediaPipe Face Landmarker when possible.
  * Samples makeup-relevant regions: cheeks, forehead, jaw, under-eye, hairline.
+ * Lighting is normalized first so shade/sun selfies are closer.
  */
 export async function analyzeCapturedImage(
   canvas: HTMLCanvasElement,
@@ -550,16 +557,24 @@ export async function analyzeCapturedImage(
   }
 
   const { width, height } = canvas
-  const { data } = ctx.getImageData(0, 0, width, height)
+  const { data: raw } = ctx.getImageData(0, 0, width, height)
 
+  let landmarks: Landmark[] | null = null
   try {
-    const landmarks = await detectFaceLandmarks(canvas)
-    if (landmarks) {
-      return analyzeWithLandmarks(data, width, height, landmarks)
-    }
+    landmarks = await detectFaceLandmarks(canvas)
   } catch {
-    // fall through to heuristic
+    landmarks = null
   }
 
-  return analyzeHeuristic(data, width, height)
+  const { data, lighting } = correctLighting(raw, width, height, landmarks)
+
+  if (landmarks) {
+    try {
+      return analyzeWithLandmarks(data, width, height, landmarks, lighting)
+    } catch {
+      // fall through to heuristic on corrected buffer
+    }
+  }
+
+  return analyzeHeuristic(data, width, height, lighting)
 }
