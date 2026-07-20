@@ -12,8 +12,8 @@ const sr = {
   'lang.toggle': 'Jezik',
 
   'analyze.detectFace': 'Detektujem lice…',
-  'analyze.measure': 'Merim regione lica i kosu…',
-  'analyze.pickProducts': 'Biram proizvode po zonama…',
+  'analyze.measure': 'Analiziram ton…',
+  'analyze.pickProducts': 'Biram proizvode…',
 
   'camera.unsupported': 'Kamera nije podržana u ovom pregledaču.',
   'camera.denied':
@@ -152,8 +152,8 @@ const en: Record<MessageKey, string> = {
   'lang.toggle': 'Language',
 
   'analyze.detectFace': 'Detecting your face…',
-  'analyze.measure': 'Measuring face regions and hair…',
-  'analyze.pickProducts': 'Picking products by zone…',
+  'analyze.measure': 'Analyzing your tone…',
+  'analyze.pickProducts': 'Picking products…',
 
   'camera.unsupported': 'Camera is not supported in this browser.',
   'camera.denied':

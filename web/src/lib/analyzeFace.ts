@@ -12,14 +12,12 @@ import {
   rgbToHex,
   rgbToLab,
 } from './color'
-import { cropFaceForMl } from './faceCrop'
 import {
   MAKEUP_REGIONS,
   detectFaceLandmarks,
   type Landmark,
   type MakeupRegionKey,
 } from './faceLandmarker'
-import { classifyHairMl } from './hairMl'
 import {
   itaToFitzpatrick,
   resolveDepthFromItaAndFitzpatrick,
@@ -622,7 +620,7 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
  * Analyze a captured selfie with MediaPipe Face Landmarker when possible.
  * Samples makeup-relevant regions: cheeks, forehead, jaw, under-eye, hairline.
  * Lighting is normalized first so shade/sun selfies are closer.
- * Hair ML is optional and never blocks on model download (heuristic is default).
+ * Hair uses a cheap Lab/bald heuristic only (no ML) — least important for matching.
  * Fitzpatrick from ITA (Fitzpatrick17k thresholds).
  */
 export async function analyzeCapturedImage(
@@ -636,62 +634,23 @@ export async function analyzeCapturedImage(
   const { width, height } = canvas
   const { data: raw } = ctx.getImageData(0, 0, width, height)
 
-  // Face Landmarker first load can be slow on mobile — don't hang forever.
+  // Face Landmarker first load can be slow on mobile — fail fast to heuristic.
   let landmarks: Landmark[] | null = null
   try {
-    landmarks = await withTimeout(detectFaceLandmarks(canvas), 6000)
+    landmarks = await withTimeout(detectFaceLandmarks(canvas), 2500)
   } catch {
     landmarks = null
   }
 
   const { data, lighting } = correctLighting(raw, width, height, landmarks)
 
-  let profile: SkinProfile
   if (landmarks) {
     try {
-      profile = analyzeWithLandmarks(data, width, height, landmarks, lighting)
+      return analyzeWithLandmarks(data, width, height, landmarks, lighting)
     } catch {
-      profile = analyzeHeuristic(data, width, height, lighting)
-    }
-  } else {
-    profile = analyzeHeuristic(data, width, height, lighting)
-  }
-
-  // Hair ML only if already warm; otherwise keep fast Lab/bald heuristic.
-  const hairRegion = profile.regions.find((r) => r.id === 'hair')
-  const crop = cropFaceForMl(canvas, landmarks)
-  const ml = await classifyHairMl(
-    crop.toDataURL('image/jpeg', 0.85),
-    hairRegion?.lab ?? profile.lab,
-    hairRegion
-      ? [
-          parseInt(hairRegion.hex.slice(1, 3), 16),
-          parseInt(hairRegion.hex.slice(3, 5), 16),
-          parseInt(hairRegion.hex.slice(5, 7), 16),
-        ]
-      : [90, 70, 55],
-    hairRegion?.pixelCount ?? 0,
-    expectedHairSampleBudget(width, height),
-  )
-
-  if (ml) {
-    profile = {
-      ...profile,
-      hair: {
-        family: ml.family,
-        temperature: ml.temperature,
-        hex: ml.hex,
-        bald: ml.bald,
-        confidence: ml.confidence,
-        source: ml.source,
-      },
-      regions: profile.regions.map((region) =>
-        region.id === 'hair'
-          ? { ...region, label: ml.bald ? 'Kosa (celavo)' : 'Kosa', hex: ml.hex }
-          : region,
-      ),
+      return analyzeHeuristic(data, width, height, lighting)
     }
   }
 
-  return profile
+  return analyzeHeuristic(data, width, height, lighting)
 }

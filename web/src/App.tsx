@@ -6,6 +6,7 @@ import { loadActiveCatalog } from './data/catalog'
 import { useLanguage } from './i18n/LanguageContext'
 import { analyzeCapturedImage } from './lib/analyzeFace'
 import { uploadCaptureBundle } from './lib/calibrationUpload'
+import { preloadFaceLandmarker } from './lib/faceLandmarker'
 import { buildFaceRoutine } from './lib/faceRoutine'
 import type {
   AppPhase,
@@ -64,6 +65,8 @@ export default function App() {
 
   useEffect(() => {
     void loadActiveCatalog().then(setCatalog)
+    // Warm MediaPipe early so shutter analysis stays snappy.
+    preloadFaceLandmarker()
   }, [])
 
   function resetToLanding() {
