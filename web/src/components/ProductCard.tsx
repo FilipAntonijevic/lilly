@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { MakeupProduct } from '../types'
 import { useLanguage } from '../i18n/LanguageContext'
+import { findShadeVariants } from '../lib/shadeFamilies'
 
 function formatPriceRsd(
   price: number | undefined,
@@ -23,29 +24,44 @@ function optimizeImageUrl(url?: string): string | undefined {
 
 interface ProductCardProps {
   product: MakeupProduct
-  reason?: string
+  catalog: MakeupProduct[]
 }
 
-export function ProductCard({ product, reason }: ProductCardProps) {
+export function ProductCard({ product, catalog }: ProductCardProps) {
   const { locale, t } = useLanguage()
+  const variants = useMemo(
+    () => findShadeVariants(product, catalog),
+    [product, catalog],
+  )
+  const [selected, setSelected] = useState(product)
   const [imgFailed, setImgFailed] = useState(false)
-  const imageSrc = optimizeImageUrl(product.imageUrl)
+
+  useEffect(() => {
+    setSelected(product)
+    setImgFailed(false)
+  }, [product.id])
+
+  useEffect(() => {
+    setImgFailed(false)
+  }, [selected.id])
+
+  const imageSrc = optimizeImageUrl(selected.imageUrl)
   const showImage = Boolean(imageSrc) && !imgFailed
-  const href = product.url
+  const href = selected.url
   const priceLabel = formatPriceRsd(
-    product.priceRsd,
+    selected.priceRsd,
     t('product.priceUnavailable'),
     locale,
   )
 
-  const body = (
+  const linkBody = (
     <>
       <div className="product-media">
         {showImage ? (
           <img
             className="product-image"
             src={imageSrc}
-            alt={product.name}
+            alt={selected.name}
             loading="lazy"
             referrerPolicy="no-referrer"
             onError={() => setImgFailed(true)}
@@ -53,46 +69,67 @@ export function ProductCard({ product, reason }: ProductCardProps) {
         ) : (
           <span
             className="product-swatch large"
-            style={{ background: product.shadeHex }}
+            style={{ background: selected.shadeHex }}
             aria-hidden="true"
           />
         )}
-        <span
-          className="shade-dot"
-          style={{ background: product.shadeHex }}
-          title={product.shadeHex}
-          aria-hidden="true"
-        />
       </div>
       <div className="match-meta">
-        {/* Product name / brand / shade stay as in catalog */}
-        <p className="product-name">{product.name}</p>
-        <p className="product-brand">
-          {product.brand}
-          {product.shadeName
-            ? ` · ${t('product.shade', { name: product.shadeName })}`
-            : ''}
-        </p>
+        <p className="product-name">{selected.name}</p>
         <p className="product-price">{priceLabel}</p>
-        {reason && <p className="product-reason">{reason}</p>}
-        {href && <span className="product-link">{t('product.viewDm')}</span>}
       </div>
     </>
   )
 
-  if (!href) {
-    return <div className="zone-product-card static">{body}</div>
-  }
-
   return (
-    <a
-      className="zone-product-card"
-      href={href}
-      target="_blank"
-      rel="noreferrer"
-      aria-label={t('product.openDm', { name: product.name, price: priceLabel })}
-    >
-      {body}
-    </a>
+    <div className="product-card-wrap">
+      {href ? (
+        <a
+          className="zone-product-card"
+          href={href}
+          target="_blank"
+          rel="noreferrer"
+          aria-label={t('product.openDm', {
+            name: selected.name,
+            price: priceLabel,
+          })}
+        >
+          {linkBody}
+        </a>
+      ) : (
+        <div className="zone-product-card static">{linkBody}</div>
+      )}
+
+      {variants.length > 0 && (
+        <div
+          className="shade-dots"
+          role="listbox"
+          aria-label={t('product.shades')}
+        >
+          {variants.map((variant) => {
+            const selectedShade = variant.id === selected.id
+            return (
+              <button
+                key={variant.id}
+                type="button"
+                role="option"
+                aria-selected={selectedShade}
+                className={
+                  selectedShade ? 'shade-dot-btn is-selected' : 'shade-dot-btn'
+                }
+                style={{ background: variant.shadeHex }}
+                title={variant.shadeName || variant.name}
+                aria-label={variant.shadeName || variant.name}
+                onClick={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  setSelected(variant)
+                }}
+              />
+            )
+          })}
+        </div>
+      )}
+    </div>
   )
 }

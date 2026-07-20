@@ -41,6 +41,7 @@ const sr = {
 
   'product.priceUnavailable': 'Cena nije dostupna',
   'product.shade': 'nijansa {name}',
+  'product.shades': 'Dostupne nijanse',
   'product.viewDm': 'Pogledaj na dm.rs →',
   'product.openDm': '{name}, {price}, otvori na dm.rs',
 
@@ -180,6 +181,7 @@ const en: Record<MessageKey, string> = {
 
   'product.priceUnavailable': 'Price unavailable',
   'product.shade': 'shade {name}',
+  'product.shades': 'Available shades',
   'product.viewDm': 'View on dm.rs →',
   'product.openDm': '{name}, {price}, open on dm.rs',
 

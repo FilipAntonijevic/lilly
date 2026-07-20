@@ -246,6 +246,7 @@ export default function App() {
             photoUrl={photoUrl}
             profile={profile}
             routine={routine}
+            catalog={catalog.products}
             onRetake={retake}
           />
         </>

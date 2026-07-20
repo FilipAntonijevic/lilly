@@ -1,4 +1,4 @@
-import type { FaceZoneMatch, SkinProfile } from '../types'
+import type { FaceZoneMatch, MakeupProduct, SkinProfile } from '../types'
 import { useLanguage } from '../i18n/LanguageContext'
 import { isMessageKey } from '../i18n/messages'
 import {
@@ -14,6 +14,7 @@ interface ResultsPanelProps {
   photoUrl: string
   profile: SkinProfile
   routine: FaceZoneMatch[]
+  catalog: MakeupProduct[]
   onRetake: () => void
 }
 
@@ -21,6 +22,7 @@ export function ResultsPanel({
   photoUrl,
   profile,
   routine,
+  catalog,
   onRetake,
 }: ResultsPanelProps) {
   const { locale, t } = useLanguage()
@@ -87,7 +89,7 @@ export function ResultsPanel({
               <article key={zone.zoneId} className="product-stack-item">
                 <p className="product-stack-category">{categoryLabel}</p>
                 {product ? (
-                  <ProductCard product={product} />
+                  <ProductCard product={product} catalog={catalog} />
                 ) : (
                   <p className="zone-empty">{t('results.emptyZone')}</p>
                 )}
