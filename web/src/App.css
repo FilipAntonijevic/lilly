@@ -85,6 +85,13 @@
   transition: transform 0.2s ease, background 0.2s ease;
 }
 
+.catalog-count {
+  margin: 0 0 1rem;
+  font-size: 0.95rem;
+  opacity: 0.85;
+  animation: rise 0.8s 0.35s ease both;
+}
+
 .btn-primary {
   background: var(--foam);
   color: var(--ink);
@@ -379,6 +386,55 @@
   padding: 0.9rem 1rem;
   margin: 0 0 1.5rem;
   line-height: 1.45;
+}
+
+.zone-list {
+  display: grid;
+  gap: 1.1rem;
+}
+
+.zone-card {
+  padding: 1rem 0 1.15rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.zone-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.zone-label {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.zone-target {
+  margin: 0.2rem 0 0;
+  font-size: 0.9rem;
+  color: var(--ink-soft);
+}
+
+.zone-tip {
+  margin: 0.55rem 0 0.85rem;
+  font-size: 0.92rem;
+  color: var(--ink-soft);
+  line-height: 1.4;
+}
+
+.zone-product {
+  border-bottom: none;
+  padding: 0.35rem 0 0;
+}
+
+.zone-empty {
+  margin: 0;
+  font-size: 0.95rem;
+  color: var(--ink-soft);
 }
 
 .match-groups {

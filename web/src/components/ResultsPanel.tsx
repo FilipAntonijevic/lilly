@@ -1,28 +1,23 @@
-import type { ProductMatch, SkinProfile } from '../types'
-import { categoryLabel } from '../lib/matchProducts'
+import type { FaceZoneMatch, SkinProfile } from '../types'
 import { depthLabel, hairLabel, undertoneLabel } from '../lib/labels'
 
 interface ResultsPanelProps {
   photoUrl: string
   profile: SkinProfile
-  matches: ProductMatch[]
+  routine: FaceZoneMatch[]
   usingDemo: boolean
+  catalogCount: number
   onRetake: () => void
 }
 
 export function ResultsPanel({
   photoUrl,
   profile,
-  matches,
+  routine,
   usingDemo,
+  catalogCount,
   onRetake,
 }: ResultsPanelProps) {
-  const byCategory = matches.reduce<Record<string, ProductMatch[]>>((acc, m) => {
-    const key = m.product.category
-    ;(acc[key] ??= []).push(m)
-    return acc
-  }, {})
-
   return (
     <section className="results" aria-live="polite">
       <div className="results-hero">
@@ -32,7 +27,7 @@ export function ResultsPanel({
           <h2>Tvoj ton</h2>
           <p className="mesh-status">
             {profile.usedFaceMesh
-              ? 'Face mesh: detektovani regioni (jagodice, čelo, vilica…)'
+              ? 'Face mesh: regioni mapirani na sminku (jagodice, čelo, vilica…)'
               : 'Face mesh nije detektovao lice — korišćen je rezervni režim'}
           </p>
           <p className={`lighting-note quality-${profile.lighting.quality}`}>
@@ -69,7 +64,7 @@ export function ResultsPanel({
 
           {profile.regions.length > 0 && (
             <div className="region-block">
-              <p className="eyebrow">Regioni</p>
+              <p className="eyebrow">Izmereni regioni</p>
               <ul className="region-list">
                 {profile.regions.map((region) => (
                   <li key={region.id} className="region-item">
@@ -92,66 +87,74 @@ export function ResultsPanel({
       </div>
 
       <div className="results-matches">
-        <p className="eyebrow">Preporuke</p>
-        <h2>Najbolji match</h2>
+        <p className="eyebrow">Rutina šminkanja</p>
+        <h2>Po jedan proizvod po zoni lica</h2>
         {usingDemo ? (
           <p className="demo-banner">
-            Katalog prodavnice je još prazan — prikazan je demo katalog da vidiš
-            kako matching radi.
+            Demo katalog — dm.rs baza nije učitana.
           </p>
         ) : (
           <p className="demo-banner">
-            Preporuke iz dm.rs kataloga (nijansa + hex boja). Pokreni{' '}
-            <code>npm run scrape:dm</code> za osvežavanje.
+            Preporuke iz dm.rs kataloga ({catalogCount} artikala). Svaka zona =
+            najbolji match za taj deo lica.
           </p>
         )}
 
-        {!matches.length ? (
-          <p className="empty-catalog">
-            Nema proizvoda u bazi. Dodaj stavke u <code>src/data/products.json</code>{' '}
-            i osveži aplikaciju.
-          </p>
-        ) : (
-          <div className="match-groups">
-            {Object.entries(byCategory).map(([category, items]) => (
-              <div key={category} className="match-group">
-                <h3>{categoryLabel(items[0].product.category)}</h3>
-                <ul className="match-list">
-                  {items.map(({ product, score, reasons }) => (
-                    <li key={product.id} className="match-item">
-                      <span
-                        className="product-swatch"
-                        style={{ background: product.shadeHex }}
-                        aria-hidden="true"
-                      />
-                      <div className="match-meta">
-                        <p className="product-name">{product.name}</p>
-                        <p className="product-brand">
-                          {product.brand}
-                          {product.shadeName ? ` · nijansa ${product.shadeName}` : ''}
-                          {product.shadeHex ? ` · ${product.shadeHex}` : ''}
-                          {product.source === 'dm' ? ' · dm.rs' : ''}
-                        </p>
-                        <p className="product-reason">{reasons[0]}</p>
-                        {product.url && (
-                          <a
-                            className="product-link"
-                            href={product.url}
-                            target="_blank"
-                            rel="noreferrer"
-                          >
-                            Otvori na dm.rs
-                          </a>
-                        )}
-                      </div>
-                      <span className="match-score">{Math.round(score)}%</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
-        )}
+        <div className="zone-list">
+          {routine.map((zone) => {
+            const product = zone.match?.product
+            return (
+              <article key={zone.zoneId} className="zone-card">
+                <header className="zone-head">
+                  <div>
+                    <p className="zone-label">{zone.zoneLabel}</p>
+                    <p className="zone-target">{zone.faceTarget}</p>
+                  </div>
+                  {zone.match && (
+                    <span className="match-score">
+                      {Math.round(zone.match.score)}%
+                    </span>
+                  )}
+                </header>
+                <p className="zone-tip">{zone.tip}</p>
+
+                {product ? (
+                  <div className="match-item zone-product">
+                    <span
+                      className="product-swatch"
+                      style={{ background: product.shadeHex }}
+                      aria-hidden="true"
+                    />
+                    <div className="match-meta">
+                      <p className="product-name">{product.name}</p>
+                      <p className="product-brand">
+                        {product.brand}
+                        {product.shadeName ? ` · nijansa ${product.shadeName}` : ''}
+                        {product.shadeHex ? ` · ${product.shadeHex}` : ''}
+                        {product.source === 'dm' ? ' · dm.rs' : ''}
+                      </p>
+                      <p className="product-reason">
+                        {zone.match?.reasons[0]}
+                      </p>
+                      {product.url && (
+                        <a
+                          className="product-link"
+                          href={product.url}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          Otvori na dm.rs
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <p className="zone-empty">Nema proizvoda u ovoj kategoriji.</p>
+                )}
+              </article>
+            )
+          })}
+        </div>
       </div>
     </section>
   )

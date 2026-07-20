@@ -3,8 +3,13 @@ import { CameraStage } from './components/CameraStage'
 import { ResultsPanel } from './components/ResultsPanel'
 import { loadActiveCatalog } from './data/catalog'
 import { analyzeCapturedImage } from './lib/analyzeFace'
-import { matchProducts } from './lib/matchProducts'
-import type { AppPhase, MakeupProduct, ProductMatch, SkinProfile } from './types'
+import { buildFaceRoutine } from './lib/faceRoutine'
+import type {
+  AppPhase,
+  FaceZoneMatch,
+  MakeupProduct,
+  SkinProfile,
+} from './types'
 import './App.css'
 
 type HistoryPhase = 'idle' | 'camera' | 'results'
@@ -24,7 +29,7 @@ export default function App() {
   const [phase, setPhase] = useState<AppPhase>('idle')
   const [photoUrl, setPhotoUrl] = useState<string | null>(null)
   const [profile, setProfile] = useState<SkinProfile | null>(null)
-  const [matches, setMatches] = useState<ProductMatch[]>([])
+  const [routine, setRoutine] = useState<FaceZoneMatch[]>([])
   const [analyzingLabel, setAnalyzingLabel] = useState('Analiziram ton kože…')
   const [catalog, setCatalog] = useState<{
     products: MakeupProduct[]
@@ -39,7 +44,7 @@ export default function App() {
   function resetToLanding() {
     analysisIdRef.current += 1
     setProfile(null)
-    setMatches([])
+    setRoutine([])
     setPhotoUrl(null)
     setPhase('idle')
   }
@@ -52,7 +57,7 @@ export default function App() {
       if (next === 'camera') {
         analysisIdRef.current += 1
         setProfile(null)
-        setMatches([])
+        setRoutine([])
         setPhotoUrl(null)
         setPhase('camera')
         return
@@ -77,19 +82,17 @@ export default function App() {
 
     void (async () => {
       try {
-        setAnalyzingLabel('Merim jagodice, čelo i vilicu…')
+        setAnalyzingLabel('Merim regione lica…')
         const skin = await analyzeCapturedImage(canvas)
         if (analysisId !== analysisIdRef.current) return
 
+        setAnalyzingLabel('Biram proizvode po zonama…')
         const active = catalog ?? (await loadActiveCatalog())
         if (!catalog) setCatalog(active)
 
-        const { top } = matchProducts(active.products, skin, {
-          perCategory: 2,
-          overallLimit: 12,
-        })
+        const zones = buildFaceRoutine(active.products, skin)
         setProfile(skin)
-        setMatches(top)
+        setRoutine(zones)
         setPhase('results')
         writeHistory('results', 'replace')
       } catch {
@@ -102,7 +105,7 @@ export default function App() {
   function retake() {
     analysisIdRef.current += 1
     setProfile(null)
-    setMatches([])
+    setRoutine([])
     setPhotoUrl(null)
     setPhase('camera')
     writeHistory('camera', 'replace')
@@ -118,9 +121,14 @@ export default function App() {
             <p className="brand">Lilly</p>
             <h1>Pronađi sminku koja odgovara tvom tonu.</h1>
             <p className="lead">
-              Uključi kameru, uslikaj se i dobij preporuke po boji kože sa
-              jagodica, čela i vilice.
+              Uslikaj se i dobij po jedan dm.rs proizvod za ten, ispod očiju,
+              jagodice, konturu, usne i oči.
             </p>
+            {catalog && !catalog.usingDemo && (
+              <p className="catalog-count">
+                Katalog: {catalog.products.length} artikala sa dm.rs
+              </p>
+            )}
             <button type="button" className="btn-primary" onClick={startCamera}>
               Otvori kameru
             </button>
@@ -147,8 +155,9 @@ export default function App() {
         <ResultsPanel
           photoUrl={photoUrl}
           profile={profile}
-          matches={matches}
+          routine={routine}
           usingDemo={catalog.usingDemo}
+          catalogCount={catalog.products.length}
           onRetake={retake}
         />
       )}

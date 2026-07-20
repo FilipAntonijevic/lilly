@@ -106,4 +106,22 @@ export interface ProductMatch {
   reasons: string[]
 }
 
+export type FaceZoneId =
+  | 'faceBase'
+  | 'underEye'
+  | 'cheeks'
+  | 'contour'
+  | 'lips'
+  | 'eyes'
+
+/** One recommended product mapped to a makeup face zone */
+export interface FaceZoneMatch {
+  zoneId: FaceZoneId
+  zoneLabel: string
+  faceTarget: string
+  category: ProductCategory
+  match: ProductMatch | null
+  tip: string
+}
+
 export type AppPhase = 'idle' | 'camera' | 'analyzing' | 'results'
