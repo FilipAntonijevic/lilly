@@ -1,6 +1,7 @@
 export type Locale = 'sr' | 'en'
 
 const sr = {
+  'landing.greeting': 'zdravo dimitrije',
   'landing.headline': 'Pronađi sminku koja odgovara tvom tonu.',
   'landing.lead':
     'Uslikaj se ili otpremi selfie i dobij po jedan dm.rs proizvod za ten, ispod očiju, jagodice, konturu, usne i oči.',
@@ -141,6 +142,7 @@ const sr = {
 export type MessageKey = keyof typeof sr
 
 const en: Record<MessageKey, string> = {
+  'landing.greeting': 'zdravo dimitrije',
   'landing.headline': 'Find makeup that matches your skin tone.',
   'landing.lead':
     'Take or upload a selfie and get one dm.rs product each for base, under-eyes, cheeks, contour, lips, and eyes.',

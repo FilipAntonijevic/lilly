@@ -201,6 +201,15 @@
   color: var(--foam);
 }
 
+.landing-greeting {
+  margin: 0 0 0.55rem;
+  font-size: clamp(1rem, 3.4vw, 1.2rem);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  opacity: 0.92;
+  animation: rise 0.8s 0.15s ease both;
+}
+
 .landing h1 {
   font-family: var(--font-display);
   font-weight: 700;
