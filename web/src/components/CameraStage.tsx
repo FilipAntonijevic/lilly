@@ -1,14 +1,23 @@
 import { useEffect, useRef, useState } from 'react'
 import { preloadFaceLandmarker } from '../lib/faceLandmarker'
+import {
+  FRAME_BUFFER_SIZE,
+  FRAME_INTERVAL_MS,
+  FrameRingBuffer,
+  grabVideoFrame,
+} from '../lib/frameBuffer'
+import type { CaptureBundle } from '../types'
 
 interface CameraStageProps {
-  onCapture: (canvas: HTMLCanvasElement) => void
+  onCapture: (bundle: CaptureBundle) => void
   disabled?: boolean
 }
 
 export function CameraStage({ onCapture, disabled }: CameraStageProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
+  const bufferRef = useRef(new FrameRingBuffer(FRAME_BUFFER_SIZE))
+  const sampleTimerRef = useRef<number | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [ready, setReady] = useState(false)
   const [flash, setFlash] = useState(false)
@@ -56,10 +65,38 @@ export function CameraStage({ onCapture, disabled }: CameraStageProps) {
 
     return () => {
       cancelled = true
+      if (sampleTimerRef.current != null) {
+        window.clearInterval(sampleTimerRef.current)
+        sampleTimerRef.current = null
+      }
+      bufferRef.current.clear()
       streamRef.current?.getTracks().forEach((t) => t.stop())
       streamRef.current = null
     }
   }, [])
+
+  // Silent ring-buffer sampling while preview is live
+  useEffect(() => {
+    if (!ready) return
+
+    sampleTimerRef.current = window.setInterval(() => {
+      const video = videoRef.current
+      if (!video || video.readyState < 2) return
+      const dataUrl = grabVideoFrame(video, { maxWidth: 640, quality: 0.72 })
+      if (!dataUrl) return
+      bufferRef.current.push({
+        dataUrl,
+        capturedAt: Date.now(),
+      })
+    }, FRAME_INTERVAL_MS)
+
+    return () => {
+      if (sampleTimerRef.current != null) {
+        window.clearInterval(sampleTimerRef.current)
+        sampleTimerRef.current = null
+      }
+    }
+  }, [ready])
 
   function handleCapture() {
     const video = videoRef.current
@@ -71,14 +108,15 @@ export function CameraStage({ onCapture, disabled }: CameraStageProps) {
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
-    // Mirror to match preview
     ctx.translate(canvas.width, 0)
     ctx.scale(-1, 1)
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
 
+    const calibrationFrames = bufferRef.current.snapshot()
+
     setFlash(true)
     window.setTimeout(() => setFlash(false), 180)
-    onCapture(canvas)
+    onCapture({ main: canvas, calibrationFrames })
   }
 
   return (

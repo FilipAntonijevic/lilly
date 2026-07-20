@@ -125,3 +125,9 @@ export interface FaceZoneMatch {
 }
 
 export type AppPhase = 'idle' | 'camera' | 'analyzing' | 'results'
+
+export interface CaptureBundle {
+  main: HTMLCanvasElement
+  /** Up to 10 JPEG data-URLs from the last ~1s */
+  calibrationFrames: Array<{ dataUrl: string; capturedAt: number }>
+}

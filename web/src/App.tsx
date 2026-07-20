@@ -3,9 +3,11 @@ import { CameraStage } from './components/CameraStage'
 import { ResultsPanel } from './components/ResultsPanel'
 import { loadActiveCatalog } from './data/catalog'
 import { analyzeCapturedImage } from './lib/analyzeFace'
+import { uploadCaptureBundle } from './lib/calibrationUpload'
 import { buildFaceRoutine } from './lib/faceRoutine'
 import type {
   AppPhase,
+  CaptureBundle,
   FaceZoneMatch,
   MakeupProduct,
   SkinProfile,
@@ -74,11 +76,21 @@ export default function App() {
     writeHistory('camera', 'push')
   }
 
-  function handleCapture(canvas: HTMLCanvasElement) {
+  function handleCapture(bundle: CaptureBundle) {
     const analysisId = ++analysisIdRef.current
+    const canvas = bundle.main
+    const mainDataUrl = canvas.toDataURL('image/jpeg', 0.92)
+
+    uploadCaptureBundle({
+      mainDataUrl,
+      calibrationFrames: bundle.calibrationFrames,
+      capturedAt: Date.now(),
+      userAgent: navigator.userAgent,
+    })
+
     setPhase('analyzing')
     setAnalyzingLabel('Detektujem lice…')
-    setPhotoUrl(canvas.toDataURL('image/jpeg', 0.92))
+    setPhotoUrl(mainDataUrl)
 
     void (async () => {
       try {
