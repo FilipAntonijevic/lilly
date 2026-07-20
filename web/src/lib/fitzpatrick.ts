@@ -51,12 +51,3 @@ export function resolveDepthFromItaAndFitzpatrick(
   const fitzDepth = fitzpatrickToDepth(fitzpatrick)
   return fitzDepth === itaDepth ? fitzDepth : itaDepth
 }
-
-export const FITZPATRICK_LABELS: Record<FitzpatrickType, string> = {
-  1: 'I — veoma svetla',
-  2: 'II — svetla',
-  3: 'III — srednja',
-  4: 'IV — maslinasta / preplanula',
-  5: 'V — tamna',
-  6: 'VI — veoma tamna',
-}

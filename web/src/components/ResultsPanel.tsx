@@ -1,5 +1,13 @@
-import type { FaceZoneMatch, SkinProfile } from '../types'
-import { depthLabel, fitzpatrickLabel, hairLabel, undertoneLabel } from '../lib/labels'
+import type { FaceRegionId, FaceZoneMatch, SkinProfile } from '../types'
+import { useLanguage } from '../i18n/LanguageContext'
+import { isMessageKey, type MessageKey } from '../i18n/messages'
+import {
+  depthLabel,
+  fitzpatrickLabel,
+  hairLabel,
+  hairTemperatureLabel,
+  undertoneLabel,
+} from '../lib/labels'
 import { ProductCard } from './ProductCard'
 
 interface ResultsPanelProps {
@@ -11,6 +19,26 @@ interface ResultsPanelProps {
   onRetake: () => void
 }
 
+function regionMessageKey(id: FaceRegionId, bald: boolean): MessageKey {
+  if (id === 'hair' && bald) return 'region.hairBald'
+  const map: Record<FaceRegionId, MessageKey> = {
+    forehead: 'region.forehead',
+    leftCheek: 'region.leftCheek',
+    rightCheek: 'region.rightCheek',
+    jaw: 'region.jaw',
+    underEye: 'region.underEye',
+    hair: 'region.hair',
+  }
+  return map[id]
+}
+
+function tx(
+  t: (key: MessageKey, vars?: Record<string, string | number>) => string,
+  value: string,
+): string {
+  return isMessageKey(value) ? t(value) : value
+}
+
 export function ResultsPanel({
   photoUrl,
   profile,
@@ -19,52 +47,56 @@ export function ResultsPanel({
   catalogCount,
   onRetake,
 }: ResultsPanelProps) {
+  const { locale, t } = useLanguage()
+
   return (
     <section className="results" aria-live="polite">
       <div className="results-hero">
-        <img src={photoUrl} alt="Tvoj snimak" className="results-photo" />
+        <img src={photoUrl} alt={t('results.photoAlt')} className="results-photo" />
         <div className="results-profile">
-          <p className="eyebrow">Analiza lica</p>
-          <h2>Tvoj ton</h2>
+          <p className="eyebrow">{t('results.eyebrow')}</p>
+          <h2>{t('results.title')}</h2>
           <p className="mesh-status">
-            {profile.usedFaceMesh
-              ? 'Face mesh: regioni mapirani na sminku (jagodice, čelo, vilica…)'
-              : 'Face mesh nije detektovao lice — korišćen je rezervni režim'}
+            {profile.usedFaceMesh ? t('results.meshOk') : t('results.meshFallback')}
           </p>
           <p className={`lighting-note quality-${profile.lighting.quality}`}>
-            {profile.lighting.note}
+            {t(profile.lighting.noteKey)}
           </p>
           <div className="swatch-row">
-            <span className="swatch" style={{ background: profile.hex }} title="Koža" />
+            <span
+              className="swatch"
+              style={{ background: profile.hex }}
+              title={t('results.skin')}
+            />
             <span
               className="swatch"
               style={{ background: profile.hair.hex }}
-              title="Kosa"
+              title={t('results.hairSwatch')}
             />
           </div>
           <ul className="profile-list">
             <li>
-              <span>Dubina tena</span>
-              <strong>{depthLabel(profile.depth)}</strong>
+              <span>{t('results.depth')}</span>
+              <strong>{depthLabel(profile.depth, locale)}</strong>
             </li>
             <li>
-              <span>Fitzpatrick</span>
-              <strong>{fitzpatrickLabel(profile.fitzpatrick)}</strong>
+              <span>{t('results.fitzpatrick')}</span>
+              <strong>{fitzpatrickLabel(profile.fitzpatrick, locale)}</strong>
             </li>
             <li>
-              <span>Undertone</span>
-              <strong>{undertoneLabel(profile.undertone)}</strong>
+              <span>{t('results.undertone')}</span>
+              <strong>{undertoneLabel(profile.undertone, locale)}</strong>
             </li>
             <li>
-              <span>ITA</span>
+              <span>{t('results.ita')}</span>
               <strong>{profile.ita.toFixed(1)}°</strong>
             </li>
             <li>
-              <span>Kosa</span>
+              <span>{t('results.hair')}</span>
               <strong>
                 {profile.hair.bald
-                  ? 'Celavo'
-                  : `${hairLabel(profile.hair.family)} · ${profile.hair.temperature}`}
+                  ? t('results.bald')
+                  : `${hairLabel(profile.hair.family, locale)} · ${hairTemperatureLabel(profile.hair.temperature, locale)}`}
                 {profile.hair.source.startsWith('ml') ? ' · ML' : ''}
               </strong>
             </li>
@@ -72,7 +104,7 @@ export function ResultsPanel({
 
           {profile.regions.length > 0 && (
             <div className="region-block">
-              <p className="eyebrow">Izmereni regioni</p>
+              <p className="eyebrow">{t('results.regions')}</p>
               <ul className="region-list">
                 {profile.regions.map((region) => (
                   <li key={region.id} className="region-item">
@@ -81,7 +113,9 @@ export function ResultsPanel({
                       style={{ background: region.hex }}
                       aria-hidden="true"
                     />
-                    <span>{region.label}</span>
+                    <span>
+                      {t(regionMessageKey(region.id, profile.hair.bald))}
+                    </span>
                   </li>
                 ))}
               </ul>
@@ -89,34 +123,32 @@ export function ResultsPanel({
           )}
 
           <button type="button" className="btn-secondary" onClick={onRetake}>
-            Nova slika
+            {t('results.retake')}
           </button>
         </div>
       </div>
 
       <div className="results-matches">
-        <p className="eyebrow">Rutina šminkanja</p>
-        <h2>Po jedan proizvod po zoni lica</h2>
+        <p className="eyebrow">{t('results.routineEyebrow')}</p>
+        <h2>{t('results.routineTitle')}</h2>
         {usingDemo ? (
-          <p className="demo-banner">
-            Demo katalog — dm.rs baza nije učitana.
-          </p>
+          <p className="demo-banner">{t('results.demoBanner')}</p>
         ) : (
           <p className="demo-banner">
-            Preporuke iz dm.rs kataloga ({catalogCount} artikala). Svaka zona =
-            najbolji match za taj deo lica.
+            {t('results.liveBanner', { count: catalogCount })}
           </p>
         )}
 
         <div className="zone-list">
           {routine.map((zone) => {
             const product = zone.match?.product
+            const reasonKey = zone.match?.reasons[0]
             return (
               <article key={zone.zoneId} className="zone-card">
                 <header className="zone-head">
                   <div>
-                    <p className="zone-label">{zone.zoneLabel}</p>
-                    <p className="zone-target">{zone.faceTarget}</p>
+                    <p className="zone-label">{tx(t, zone.zoneLabel)}</p>
+                    <p className="zone-target">{tx(t, zone.faceTarget)}</p>
                   </div>
                   {zone.match && (
                     <span className="match-score">
@@ -124,15 +156,21 @@ export function ResultsPanel({
                     </span>
                   )}
                 </header>
-                <p className="zone-tip">{zone.tip}</p>
+                <p className="zone-tip">{tx(t, zone.tip)}</p>
 
                 {product ? (
                   <ProductCard
                     product={product}
-                    reason={zone.match?.reasons[0]}
+                    reason={
+                      reasonKey
+                        ? isMessageKey(reasonKey)
+                          ? t(reasonKey)
+                          : reasonKey
+                        : undefined
+                    }
                   />
                 ) : (
-                  <p className="zone-empty">Nema proizvoda u ovoj kategoriji.</p>
+                  <p className="zone-empty">{t('results.emptyZone')}</p>
                 )}
               </article>
             )

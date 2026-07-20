@@ -1,10 +1,15 @@
 import { useState } from 'react'
 import type { MakeupProduct } from '../types'
+import { useLanguage } from '../i18n/LanguageContext'
 
-function formatPriceRsd(price?: number): string {
-  if (typeof price !== 'number' || Number.isNaN(price)) return 'Cena nije dostupna'
+function formatPriceRsd(
+  price: number | undefined,
+  unavailable: string,
+  locale: string,
+): string {
+  if (typeof price !== 'number' || Number.isNaN(price)) return unavailable
   return (
-    new Intl.NumberFormat('sr-RS', {
+    new Intl.NumberFormat(locale === 'en' ? 'en-US' : 'sr-RS', {
       maximumFractionDigits: 0,
     }).format(price) + ' RSD'
   )
@@ -22,10 +27,16 @@ interface ProductCardProps {
 }
 
 export function ProductCard({ product, reason }: ProductCardProps) {
+  const { locale, t } = useLanguage()
   const [imgFailed, setImgFailed] = useState(false)
   const imageSrc = optimizeImageUrl(product.imageUrl)
   const showImage = Boolean(imageSrc) && !imgFailed
   const href = product.url
+  const priceLabel = formatPriceRsd(
+    product.priceRsd,
+    t('product.priceUnavailable'),
+    locale,
+  )
 
   const body = (
     <>
@@ -54,14 +65,17 @@ export function ProductCard({ product, reason }: ProductCardProps) {
         />
       </div>
       <div className="match-meta">
+        {/* Product name / brand / shade stay as in catalog */}
         <p className="product-name">{product.name}</p>
         <p className="product-brand">
           {product.brand}
-          {product.shadeName ? ` · nijansa ${product.shadeName}` : ''}
+          {product.shadeName
+            ? ` · ${t('product.shade', { name: product.shadeName })}`
+            : ''}
         </p>
-        <p className="product-price">{formatPriceRsd(product.priceRsd)}</p>
+        <p className="product-price">{priceLabel}</p>
         {reason && <p className="product-reason">{reason}</p>}
-        {href && <span className="product-link">Pogledaj na dm.rs →</span>}
+        {href && <span className="product-link">{t('product.viewDm')}</span>}
       </div>
     </>
   )
@@ -76,7 +90,7 @@ export function ProductCard({ product, reason }: ProductCardProps) {
       href={href}
       target="_blank"
       rel="noreferrer"
-      aria-label={`${product.name}, ${formatPriceRsd(product.priceRsd)}, otvori na dm.rs`}
+      aria-label={t('product.openDm', { name: product.name, price: priceLabel })}
     >
       {body}
     </a>

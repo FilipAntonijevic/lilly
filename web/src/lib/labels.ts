@@ -1,42 +1,26 @@
-import type { FitzpatrickType, HairFamily, SkinDepth, Undertone } from '../types'
-import { FITZPATRICK_LABELS } from './fitzpatrick'
+import type { FitzpatrickType, HairFamily, HairTemperature, SkinDepth, Undertone } from '../types'
+import type { Locale } from '../i18n/messages'
+import { translate } from '../i18n/messages'
 
-export function depthLabel(depth: SkinDepth): string {
-  const map: Record<SkinDepth, string> = {
-    very_light: 'Veoma svetla',
-    light: 'Svetla',
-    medium: 'Srednja',
-    tan: 'Preplanula',
-    deep: 'Tamna',
-    very_deep: 'Veoma tamna',
-  }
-  return map[depth]
+export function depthLabel(depth: SkinDepth, locale: Locale): string {
+  return translate(locale, `depth.${depth}`)
 }
 
-export function undertoneLabel(u: Undertone): string {
-  const map: Record<Undertone, string> = {
-    cool: 'Hladan (cool)',
-    warm: 'Topao (warm)',
-    neutral: 'Neutralan',
-    olive: 'Maslinast (olive)',
-  }
-  return map[u]
+export function undertoneLabel(u: Undertone, locale: Locale): string {
+  return translate(locale, `undertone.${u}`)
 }
 
-export function hairLabel(family: HairFamily): string {
-  const map: Record<HairFamily, string> = {
-    blonde: 'Plava',
-    light_brown: 'Svetlo braon',
-    brown: 'Braon',
-    black: 'Crna',
-    red: 'Crvena',
-    gray: 'Seda / siva',
-    bald: 'Celavo',
-    unknown: 'Nedefinisano',
-  }
-  return map[family]
+export function hairLabel(family: HairFamily, locale: Locale): string {
+  return translate(locale, `hair.${family}`)
 }
 
-export function fitzpatrickLabel(type: FitzpatrickType): string {
-  return FITZPATRICK_LABELS[type]
+export function hairTemperatureLabel(
+  temperature: HairTemperature,
+  locale: Locale,
+): string {
+  return translate(locale, `hair.temp.${temperature}`)
+}
+
+export function fitzpatrickLabel(type: FitzpatrickType, locale: Locale): string {
+  return translate(locale, `fitz.${type}`)
 }

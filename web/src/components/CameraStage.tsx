@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useT } from '../i18n/LanguageContext'
 import { preloadFaceLandmarker } from '../lib/faceLandmarker'
 import {
   FRAME_BUFFER_SIZE,
@@ -14,6 +15,7 @@ interface CameraStageProps {
 }
 
 export function CameraStage({ onCapture, disabled }: CameraStageProps) {
+  const t = useT()
   const videoRef = useRef<HTMLVideoElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const bufferRef = useRef(new FrameRingBuffer(FRAME_BUFFER_SIZE))
@@ -32,7 +34,7 @@ export function CameraStage({ onCapture, disabled }: CameraStageProps) {
     async function start() {
       try {
         if (!navigator.mediaDevices?.getUserMedia) {
-          setError('Kamera nije podržana u ovom pregledaču.')
+          setError('unsupported')
           return
         }
         const stream = await navigator.mediaDevices.getUserMedia({
@@ -44,7 +46,7 @@ export function CameraStage({ onCapture, disabled }: CameraStageProps) {
           audio: false,
         })
         if (cancelled) {
-          stream.getTracks().forEach((t) => t.stop())
+          stream.getTracks().forEach((track) => track.stop())
           return
         }
         streamRef.current = stream
@@ -55,9 +57,7 @@ export function CameraStage({ onCapture, disabled }: CameraStageProps) {
           setReady(true)
         }
       } catch {
-        setError(
-          'Nije moguće pristupiti kameri. Dozvoli pristup u pregledaču i osveži stranicu.',
-        )
+        setError('denied')
       }
     }
 
@@ -70,12 +70,11 @@ export function CameraStage({ onCapture, disabled }: CameraStageProps) {
         sampleTimerRef.current = null
       }
       bufferRef.current.clear()
-      streamRef.current?.getTracks().forEach((t) => t.stop())
+      streamRef.current?.getTracks().forEach((track) => track.stop())
       streamRef.current = null
     }
   }, [])
 
-  // Silent ring-buffer sampling while preview is live
   useEffect(() => {
     if (!ready) return
 
@@ -119,6 +118,13 @@ export function CameraStage({ onCapture, disabled }: CameraStageProps) {
     onCapture({ main: canvas, calibrationFrames })
   }
 
+  const errorText =
+    error === 'unsupported'
+      ? t('camera.unsupported')
+      : error === 'denied'
+        ? t('camera.denied')
+        : null
+
   return (
     <div className="camera-stage">
       <video
@@ -127,17 +133,17 @@ export function CameraStage({ onCapture, disabled }: CameraStageProps) {
         playsInline
         muted
         autoPlay
-        aria-label="Pregled kamere"
+        aria-label={t('camera.preview')}
       />
       <div className="camera-frame" aria-hidden="true" />
       {!error && ready && !disabled && (
-        <p className="camera-guide">keep your face contained within the lines</p>
+        <p className="camera-guide">{t('camera.guide')}</p>
       )}
       {flash && <div className="camera-flash" aria-hidden="true" />}
 
-      {error ? (
+      {errorText ? (
         <div className="camera-error">
-          <p>{error}</p>
+          <p>{errorText}</p>
         </div>
       ) : (
         <div className="camera-controls">
@@ -146,15 +152,13 @@ export function CameraStage({ onCapture, disabled }: CameraStageProps) {
             className="shutter-btn"
             onClick={handleCapture}
             disabled={!ready || disabled}
-            aria-label="Uslikaj"
+            aria-label={t('camera.shutter')}
           >
             <span className="shutter-ring" />
             <span className="shutter-core" />
           </button>
           <p className="camera-hint">
-            {ready
-              ? 'Ravnomerno svetlo na licu (bez jake senke), pa uslikaj'
-              : 'Pokrećem kameru…'}
+            {ready ? t('camera.hintReady') : t('camera.hintStarting')}
           </p>
         </div>
       )}

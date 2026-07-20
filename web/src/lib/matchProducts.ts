@@ -6,6 +6,7 @@ import type {
   SkinProfile,
   Undertone,
 } from '../types'
+import type { MessageKey } from '../i18n/messages'
 import { deltaE76, depthIndex, hexToLab } from './color'
 
 /**
@@ -70,7 +71,6 @@ function hairHarmony(product: MakeupProduct, skin: SkinProfile): number {
   const { temperature, family, bald } = skin.hair
   const tags = product.paletteTags.map((t) => t.toLowerCase())
 
-  // Bald / unknown: skip hair harmony — rely on undertone palettes only
   if (bald || family === 'bald' || family === 'unknown') {
     return 0.5
   }
@@ -102,14 +102,13 @@ function scoreProduct(product: MakeupProduct, skin: SkinProfile): ProductMatch {
   const undertone = undertoneCompatible(skin.undertone, product.undertone)
   const depth = depthCompatible(skin.depth, product.depthMin, product.depthMax)
   const dE = deltaE76(skin.lab, hexToLab(product.shadeHex))
-  // Map ΔE to 0–1 (smaller distance = better). ~25+ is a weak match.
   const deltaScore = Math.max(0, 1 - dE / 35)
 
   const isBase =
     product.category === 'foundation' || product.category === 'concealer'
 
   let score: number
-  const reasons: string[] = []
+  const reasons: MessageKey[] = []
 
   if (isBase) {
     score =
@@ -117,10 +116,10 @@ function scoreProduct(product: MakeupProduct, skin: SkinProfile): ProductMatch {
       depth * FOUNDATION_WEIGHT.depth +
       deltaScore * FOUNDATION_WEIGHT.deltaE
 
-    if (undertone >= 0.9) reasons.push('Isti undertone kao tvoja koža')
-    else if (undertone >= 0.65) reasons.push('Kompatibilan undertone')
-    if (depth >= 0.9) reasons.push('Poklapa se sa dubinom tena')
-    if (deltaScore >= 0.7) reasons.push('Blizu izmerenoj boji kože')
+    if (undertone >= 0.9) reasons.push('reason.sameUndertoneSkin')
+    else if (undertone >= 0.65) reasons.push('reason.compatibleUndertone')
+    if (depth >= 0.9) reasons.push('reason.depthMatch')
+    if (deltaScore >= 0.7) reasons.push('reason.closeColor')
   } else {
     const palette = paletteScore(product, skin)
     const hair = hairHarmony(product, skin)
@@ -130,12 +129,12 @@ function scoreProduct(product: MakeupProduct, skin: SkinProfile): ProductMatch {
       depth * COLOR_PRODUCT_WEIGHT.depth +
       hair * COLOR_PRODUCT_WEIGHT.hair
 
-    if (palette >= 0.5) reasons.push('Color-theory paleta za tvoj undertone')
-    if (hair >= 0.7) reasons.push('U skladu sa tonom kose')
-    if (undertone >= 0.9) reasons.push('Isti undertone')
+    if (palette >= 0.5) reasons.push('reason.palette')
+    if (hair >= 0.7) reasons.push('reason.hairHarmony')
+    if (undertone >= 0.9) reasons.push('reason.sameUndertone')
   }
 
-  if (!reasons.length) reasons.push('Prihvatljiv match za MVP katalog')
+  if (!reasons.length) reasons.push('reason.fallback')
 
   return { product, score, reasons }
 }
@@ -152,6 +151,7 @@ const CATEGORY_ORDER: ProductCategory[] = [
 /**
  * Rank products for a skin profile.
  * Returns top matches overall and best-per-category.
+ * `reasons` are i18n message keys.
  */
 export function matchProducts(
   catalog: MakeupProduct[],
@@ -185,14 +185,6 @@ export function matchProducts(
   }
 }
 
-export function categoryLabel(category: ProductCategory): string {
-  const labels: Record<ProductCategory, string> = {
-    foundation: 'Puder / foundation',
-    concealer: 'Korektor',
-    blush: 'Rumenilo',
-    lipstick: 'Ruž',
-    eyeshadow: 'Senka',
-    bronzer: 'Bronzer',
-  }
-  return labels[category]
+export function categoryLabelKey(category: ProductCategory): MessageKey {
+  return `category.${category}`
 }

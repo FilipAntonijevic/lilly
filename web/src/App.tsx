@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { CameraStage } from './components/CameraStage'
+import { LanguageToggle } from './components/LanguageToggle'
 import { ResultsPanel } from './components/ResultsPanel'
 import { loadActiveCatalog } from './data/catalog'
+import { useLanguage } from './i18n/LanguageContext'
 import { analyzeCapturedImage } from './lib/analyzeFace'
 import { uploadCaptureBundle } from './lib/calibrationUpload'
 import { preloadHairMl } from './lib/hairMl'
@@ -48,11 +50,12 @@ async function imageFileToCanvas(file: File): Promise<HTMLCanvasElement> {
 }
 
 export default function App() {
+  const { t } = useLanguage()
   const [phase, setPhase] = useState<AppPhase>('idle')
   const [photoUrl, setPhotoUrl] = useState<string | null>(null)
   const [profile, setProfile] = useState<SkinProfile | null>(null)
   const [routine, setRoutine] = useState<FaceZoneMatch[]>([])
-  const [analyzingLabel, setAnalyzingLabel] = useState('Analiziram ton kože…')
+  const [analyzingLabel, setAnalyzingLabel] = useState('')
   const [catalog, setCatalog] = useState<{
     products: MakeupProduct[]
     usingDemo: boolean
@@ -123,12 +126,12 @@ export default function App() {
     const capturedAt = Date.now()
 
     setPhase('analyzing')
-    setAnalyzingLabel('Detektujem lice…')
+    setAnalyzingLabel(t('analyze.detectFace'))
     setPhotoUrl(mainDataUrl)
 
     void (async () => {
       try {
-        setAnalyzingLabel('Merim regione lica i kosu…')
+        setAnalyzingLabel(t('analyze.measure'))
         const skin = await analyzeCapturedImage(canvas)
         if (analysisId !== analysisIdRef.current) return
 
@@ -146,7 +149,7 @@ export default function App() {
           },
         })
 
-        setAnalyzingLabel('Biram proizvode po zonama…')
+        setAnalyzingLabel(t('analyze.pickProducts'))
         const active = catalog ?? (await loadActiveCatalog())
         if (!catalog) setCatalog(active)
 
@@ -157,7 +160,6 @@ export default function App() {
         writeHistory('results', 'replace')
       } catch {
         if (analysisId !== analysisIdRef.current) return
-        // Still persist frames even if analysis fails
         uploadCaptureBundle({
           mainDataUrl,
           calibrationFrames: bundle.calibrationFrames,
@@ -199,28 +201,26 @@ export default function App() {
 
       {phase === 'idle' && (
         <section className="landing">
+          <LanguageToggle className="lang-toggle-landing" />
           <header className="brand-block">
             <p className="brand">Lilly</p>
-            <h1>Pronađi sminku koja odgovara tvom tonu.</h1>
-            <p className="lead">
-              Uslikaj se ili otpremi selfie i dobij po jedan dm.rs proizvod za
-              ten, ispod očiju, jagodice, konturu, usne i oči.
-            </p>
+            <h1>{t('landing.headline')}</h1>
+            <p className="lead">{t('landing.lead')}</p>
             {catalog && !catalog.usingDemo && (
               <p className="catalog-count">
-                Katalog: {catalog.products.length} artikala sa dm.rs
+                {t('landing.catalogCount', { count: catalog.products.length })}
               </p>
             )}
             <div className="cta-group">
               <button type="button" className="btn-primary" onClick={startCamera}>
-                Take a selfie
+                {t('landing.takeSelfie')}
               </button>
               <button
                 type="button"
                 className="btn-secondary landing-secondary"
                 onClick={openUploadPicker}
               >
-                Upload a selfie
+                {t('landing.uploadSelfie')}
               </button>
             </div>
           </header>
@@ -243,14 +243,17 @@ export default function App() {
       )}
 
       {phase === 'results' && photoUrl && profile && catalog && (
-        <ResultsPanel
-          photoUrl={photoUrl}
-          profile={profile}
-          routine={routine}
-          usingDemo={catalog.usingDemo}
-          catalogCount={catalog.products.length}
-          onRetake={retake}
-        />
+        <>
+          <LanguageToggle className="lang-toggle-results" />
+          <ResultsPanel
+            photoUrl={photoUrl}
+            profile={profile}
+            routine={routine}
+            usingDemo={catalog.usingDemo}
+            catalogCount={catalog.products.length}
+            onRetake={retake}
+          />
+        </>
       )}
     </div>
   )

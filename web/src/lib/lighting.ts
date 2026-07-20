@@ -413,21 +413,17 @@ export function correctLighting(
   )
 
   let quality: LightingInfo['quality'] = 'good'
-  let note =
-    'Svetlo je normalizovano (white balance + ekspozicija) radi stabilnijeg tona.'
+  let noteKey: LightingInfo['noteKey'] = 'lighting.good'
 
   if (cheekY < 0.08 && exposure > 2.1) {
     quality = 'poor'
-    note =
-      'Previše tamno — rezultati mogu biti nestabilni. Probaj bliže prozoru / ravnomerno svetlo.'
+    noteKey = 'lighting.poor'
   } else if (spread > 0.35 || castStrength > 0.55) {
     quality = 'fair'
-    note =
-      'Svetlo je korigovano, ali scena je nejednaka (senka/sunce). Za najbolji match koristi ravnomerno dnevno svetlo.'
+    noteKey = 'lighting.fairUneven'
   } else if (illuminantSource === 'none') {
     quality = 'fair'
-    note =
-      'Delimična korekcija svetla (nije nađen pouzdan referent). Najbolje pri prirodnom, ravnomernom svetlu.'
+    noteKey = 'lighting.fairPartial'
   }
 
   return {
@@ -435,7 +431,7 @@ export function correctLighting(
     lighting: {
       corrected: illuminantSource !== 'none' || Math.abs(exposure - 1) > 0.05,
       quality,
-      note,
+      noteKey,
       illuminantSource,
       exposureGain: exposure,
     },

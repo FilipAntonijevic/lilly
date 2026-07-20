@@ -51,10 +51,19 @@ export interface FaceRegionSample {
   pixelCount: number
 }
 
+export type LightingNoteKey =
+  | 'lighting.good'
+  | 'lighting.poor'
+  | 'lighting.fairUneven'
+  | 'lighting.fairPartial'
+
 export interface LightingInfo {
   corrected: boolean
   quality: 'good' | 'fair' | 'poor'
-  note: string
+  /** i18n key — translate at render time */
+  noteKey: LightingNoteKey
+  /** @deprecated kept for older captures; prefer noteKey */
+  note?: string
   illuminantSource: 'scene' | 'fallback' | 'none'
   exposureGain: number
 }
@@ -113,6 +122,7 @@ export interface MakeupProduct {
 export interface ProductMatch {
   product: MakeupProduct
   score: number
+  /** i18n message keys — translate at render time */
   reasons: string[]
 }
 

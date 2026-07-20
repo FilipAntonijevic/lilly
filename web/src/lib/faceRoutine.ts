@@ -6,6 +6,7 @@ import type {
   ProductCategory,
   SkinProfile,
 } from '../types'
+import type { MessageKey } from '../i18n/messages'
 import { deltaE76, hexToLab, computeIta } from './color'
 import {
   itaToFitzpatrick,
@@ -39,9 +40,6 @@ function withReferenceLab(skin: SkinProfile, lab: LabColor | null): SkinProfile 
   }
 }
 
-/**
- * Pick best catalog product for a category against a (possibly region-tuned) skin profile.
- */
 function bestInCategory(
   catalog: MakeupProduct[],
   skin: SkinProfile,
@@ -70,14 +68,8 @@ function bestInCategory(
 }
 
 /**
- * Makeup routine: one best DM product per face zone, following basic makeup mapping.
- *
- * - Ten (foundation) → whole-face / jaw+cheeks
- * - Korektor → under-eye (slightly lighter preferred)
- * - Rumenilo → cheeks
- * - Bronzer → contour (warmer / a touch deeper)
- * - Ruž → lips (undertone + hair)
- * - Senka → eyes (undertone + hair)
+ * Makeup routine: one best DM product per face zone.
+ * Labels / tips / reasons are i18n keys (translate in UI).
  */
 export function buildFaceRoutine(
   catalog: MakeupProduct[],
@@ -99,7 +91,7 @@ export function buildFaceRoutine(
   const foundation = bestInCategory(catalog, foundationSkin, 'foundation')
   if (foundation) {
     foundation.reasons = [
-      'Najbliži tenu sa jagodica / vilice / čela',
+      'reason.foundationRegions',
       ...foundation.reasons.slice(0, 1),
     ]
   }
@@ -111,7 +103,6 @@ export function buildFaceRoutine(
     (product, base) => {
       const pLab = hexToLab(product.shadeHex)
       const ref = concealerSkin.lab
-      // Prefer a touch lighter for brightening under-eye
       const lift = pLab.L - ref.L
       const liftBonus = lift >= 1 && lift <= 10 ? 8 : lift > 10 ? -4 : 0
       const close = Math.max(0, 12 - deltaE76(pLab, ref))
@@ -120,9 +111,7 @@ export function buildFaceRoutine(
   )
   if (concealer) {
     concealer.reasons = [
-      underEye
-        ? 'Podešen za zonu ispod očiju (malo svetliji ton)'
-        : 'Korektor usklađen sa tonom lica',
+      underEye ? 'reason.concealerUnderEye' : 'reason.concealerFace',
       ...concealer.reasons.slice(0, 1),
     ]
   }
@@ -130,16 +119,12 @@ export function buildFaceRoutine(
   const blush = bestInCategory(catalog, blushSkin, 'blush', (product, base) => {
     const pLab = hexToLab(product.shadeHex)
     const ref = blushSkin.lab
-    // Blush should be chroma-rich relative to skin, same undertone family
     const chroma = Math.hypot(pLab.a, pLab.b)
     const chromaBonus = chroma > 18 ? 6 : 0
     return base + chromaBonus + Math.max(0, 10 - deltaE76(pLab, ref)) * 0.25
   })
   if (blush) {
-    blush.reasons = [
-      'Za jagodice — paleta po tvom undertone-u',
-      ...blush.reasons.slice(0, 1),
-    ]
+    blush.reasons = ['reason.blush', ...blush.reasons.slice(0, 1)]
   }
 
   const bronzer = bestInCategory(catalog, foundationSkin, 'bronzer', (product, base) => {
@@ -149,78 +134,86 @@ export function buildFaceRoutine(
     return base + warmer + deeper
   })
   if (bronzer) {
-    bronzer.reasons = [
-      'Kontura / bronzer — malo dublji i topliji od tena',
-      ...bronzer.reasons.slice(0, 1),
-    ]
+    bronzer.reasons = ['reason.bronzer', ...bronzer.reasons.slice(0, 1)]
   }
 
   const lipstick = bestInCategory(catalog, skin, 'lipstick')
   if (lipstick) {
-    lipstick.reasons = [
-      'Usne — color theory za undertone i kosu',
-      ...lipstick.reasons.slice(0, 1),
-    ]
+    lipstick.reasons = ['reason.lipstick', ...lipstick.reasons.slice(0, 1)]
   }
 
   const eyeshadow = bestInCategory(catalog, skin, 'eyeshadow')
   if (eyeshadow) {
-    eyeshadow.reasons = [
-      'Oči — nijansa u skladu sa undertone-om',
-      ...eyeshadow.reasons.slice(0, 1),
-    ]
+    eyeshadow.reasons = ['reason.eyeshadow', ...eyeshadow.reasons.slice(0, 1)]
   }
 
-  return [
+  type ZoneDef = {
+    zoneId: FaceZoneMatch['zoneId']
+    labelKey: MessageKey
+    targetKey: MessageKey
+    tipKey: MessageKey
+    category: ProductCategory
+    match: FaceZoneMatch['match']
+  }
+
+  const zones: ZoneDef[] = [
     {
       zoneId: 'faceBase',
-      zoneLabel: 'Ten',
-      faceTarget: 'Celo lice (jagodice, čelo, vilica)',
+      labelKey: 'zone.faceBase.label',
+      targetKey: 'zone.faceBase.target',
+      tipKey: 'zone.faceBase.tip',
       category: 'foundation',
       match: foundation,
-      tip: 'Osnova šminke — nijansa što bliža prirodnom tenu.',
     },
     {
       zoneId: 'underEye',
-      zoneLabel: 'Ispod očiju',
-      faceTarget: 'Zona ispod očiju',
+      labelKey: 'zone.underEye.label',
+      targetKey: 'zone.underEye.target',
+      tipKey: 'zone.underEye.tip',
       category: 'concealer',
       match: concealer,
-      tip: 'Korektor malo svetliji od tena radi osvetljavanja.',
     },
     {
       zoneId: 'cheeks',
-      zoneLabel: 'Jagodice',
-      faceTarget: 'Leva i desna jagodica',
+      labelKey: 'zone.cheeks.label',
+      targetKey: 'zone.cheeks.target',
+      tipKey: 'zone.cheeks.tip',
       category: 'blush',
       match: blush,
-      tip: 'Rumenilo u tonu undertone-a za svež izgled.',
     },
     {
       zoneId: 'contour',
-      zoneLabel: 'Kontura',
-      faceTarget: 'Obodi lica / vilica',
+      labelKey: 'zone.contour.label',
+      targetKey: 'zone.contour.target',
+      tipKey: 'zone.contour.tip',
       category: 'bronzer',
       match: bronzer,
-      tip: 'Bronzer ili kontura — topliji, dublji ton od pudera.',
     },
     {
       zoneId: 'lips',
-      zoneLabel: 'Usne',
-      faceTarget: 'Usne',
+      labelKey: 'zone.lips.label',
+      targetKey: 'zone.lips.target',
+      tipKey: skin.hair.bald ? 'zone.lips.tipBald' : 'zone.lips.tip',
       category: 'lipstick',
       match: lipstick,
-      tip: skin.hair.bald
-        ? 'Ruž usklađen sa undertone-om kože.'
-        : 'Ruž usklađen sa undertone-om kože i tonom kose.',
     },
     {
       zoneId: 'eyes',
-      zoneLabel: 'Oči',
-      faceTarget: 'Kapci',
+      labelKey: 'zone.eyes.label',
+      targetKey: 'zone.eyes.target',
+      tipKey: 'zone.eyes.tip',
       category: 'eyeshadow',
       match: eyeshadow,
-      tip: 'Senka iz palete koja odgovara tvom undertone-u.',
     },
   ]
+
+  // Store keys in the string fields; UI translates via isMessageKey / t()
+  return zones.map((z) => ({
+    zoneId: z.zoneId,
+    zoneLabel: z.labelKey,
+    faceTarget: z.targetKey,
+    category: z.category,
+    match: z.match,
+    tip: z.tipKey,
+  }))
 }
