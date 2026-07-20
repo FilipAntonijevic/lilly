@@ -1,24 +1,42 @@
 import type { MakeupProduct } from '../types'
 import { DEMO_CATALOG } from './demoCatalog'
-import storeProducts from './products.json'
 
-/** Pravi katalog prodavnice — trenutno prazan niz u products.json */
-export function getStoreCatalog(): MakeupProduct[] {
-  return storeProducts as MakeupProduct[]
+let cached: { products: MakeupProduct[]; usingDemo: boolean } | null = null
+let loading: Promise<{ products: MakeupProduct[]; usingDemo: boolean }> | null =
+  null
+
+async function fetchStoreCatalog(): Promise<MakeupProduct[]> {
+  try {
+    const res = await fetch(`${import.meta.env.BASE_URL}products.json`, {
+      cache: 'no-cache',
+    })
+    if (!res.ok) return []
+    const data = (await res.json()) as MakeupProduct[]
+    return Array.isArray(data) ? data : []
+  } catch {
+    return []
+  }
 }
 
 /**
  * Aktivni katalog za matching:
- * - ako products.json ima stavke → koristi njih
- * - inače → demo katalog (za MVP prezentaciju)
+ * - products.json (dm.rs scrape) ako ima stavke
+ * - inače demo katalog
  */
-export function getActiveCatalog(): {
+export async function loadActiveCatalog(): Promise<{
   products: MakeupProduct[]
   usingDemo: boolean
-} {
-  const store = getStoreCatalog()
-  if (store.length > 0) {
-    return { products: store, usingDemo: false }
+}> {
+  if (cached) return cached
+  if (!loading) {
+    loading = (async () => {
+      const store = await fetchStoreCatalog()
+      cached =
+        store.length > 0
+          ? { products: store, usingDemo: false }
+          : { products: DEMO_CATALOG, usingDemo: true }
+      return cached
+    })()
   }
-  return { products: DEMO_CATALOG, usingDemo: true }
+  return loading
 }

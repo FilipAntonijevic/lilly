@@ -12,10 +12,18 @@ Web MVP za shade matching: uslikaj lice, analiziraj ton kože i dobij preporuke 
 4. Procenuje ton kose
 5. Rangira proizvode (foundation, korektor, rumenilo, ruž, senka, bronzer)
 
-## Katalog
+## Katalog (dm.rs)
 
-- Pravi katalog: `web/src/data/products.json` (trenutno `[]`)
-- Dok je prazan, UI koristi demo katalog iz `web/src/data/demoCatalog.ts` da matching bude vidljiv na prezentaciji
+- Pravi katalog: `web/src/data/products.json` (scraped sa dm.rs — nijansa + hex)
+- Siovi podaci: `web/src/data/dm-raw.json`
+- Osvežavanje:
+
+```bash
+cd web
+npm run scrape:dm
+```
+
+Scraper koristi javni DM product-search API (`product-search.services.dmtech.com/rs/search`), uzima `tileColors[].hex` i naziv nijanse iz naslova. Dok je katalog prazan, UI pada na demo katalog.
 
 Primer stavke u `products.json`:
 

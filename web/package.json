@@ -9,7 +9,8 @@
     "lint": "oxlint",
     "preview": "vite preview",
     "predeploy": "npm run build",
-    "deploy": "gh-pages -d dist"
+    "deploy": "gh-pages -d dist",
+    "scrape:dm": "node scripts/scrape-dm.mjs"
   },
   "dependencies": {
     "@mediapipe/tasks-vision": "^0.10.35",

@@ -82,6 +82,8 @@ export interface MakeupProduct {
   category: ProductCategory
   /** Hex of the product shade / swatch */
   shadeHex: string
+  /** Human shade label from retailer (e.g. "20 Velvet sand") */
+  shadeName?: string
   undertone: Undertone
   /** Inclusive depth range this shade suits */
   depthMin: SkinDepth
@@ -90,6 +92,11 @@ export interface MakeupProduct {
   paletteTags: string[]
   /** Optional product URL on the store site */
   url?: string
+  imageUrl?: string
+  priceRsd?: number
+  gtin?: string
+  dan?: string
+  source?: 'dm' | 'demo'
   isDemo?: boolean
 }
 

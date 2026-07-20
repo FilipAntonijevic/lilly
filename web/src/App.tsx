@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { CameraStage } from './components/CameraStage'
 import { ResultsPanel } from './components/ResultsPanel'
-import { getActiveCatalog } from './data/catalog'
+import { loadActiveCatalog } from './data/catalog'
 import { analyzeCapturedImage } from './lib/analyzeFace'
 import { matchProducts } from './lib/matchProducts'
-import type { AppPhase, ProductMatch, SkinProfile } from './types'
+import type { AppPhase, MakeupProduct, ProductMatch, SkinProfile } from './types'
 import './App.css'
 
 type HistoryPhase = 'idle' | 'camera' | 'results'
@@ -26,9 +26,15 @@ export default function App() {
   const [profile, setProfile] = useState<SkinProfile | null>(null)
   const [matches, setMatches] = useState<ProductMatch[]>([])
   const [analyzingLabel, setAnalyzingLabel] = useState('Analiziram ton kože…')
+  const [catalog, setCatalog] = useState<{
+    products: MakeupProduct[]
+    usingDemo: boolean
+  } | null>(null)
   const analysisIdRef = useRef(0)
 
-  const catalog = useMemo(() => getActiveCatalog(), [])
+  useEffect(() => {
+    void loadActiveCatalog().then(setCatalog)
+  }, [])
 
   function resetToLanding() {
     analysisIdRef.current += 1
@@ -51,7 +57,6 @@ export default function App() {
         setPhase('camera')
         return
       }
-      // Back from results (or unknown) → landing
       resetToLanding()
     }
 
@@ -76,14 +81,16 @@ export default function App() {
         const skin = await analyzeCapturedImage(canvas)
         if (analysisId !== analysisIdRef.current) return
 
-        const { top } = matchProducts(catalog.products, skin, {
+        const active = catalog ?? (await loadActiveCatalog())
+        if (!catalog) setCatalog(active)
+
+        const { top } = matchProducts(active.products, skin, {
           perCategory: 2,
           overallLimit: 12,
         })
         setProfile(skin)
         setMatches(top)
         setPhase('results')
-        // Replace camera entry so Back skips camera and returns to landing
         writeHistory('results', 'replace')
       } catch {
         if (analysisId !== analysisIdRef.current) return
@@ -136,7 +143,7 @@ export default function App() {
         </section>
       )}
 
-      {phase === 'results' && photoUrl && profile && (
+      {phase === 'results' && photoUrl && profile && catalog && (
         <ResultsPanel
           photoUrl={photoUrl}
           profile={profile}

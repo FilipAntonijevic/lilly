@@ -94,11 +94,15 @@ export function ResultsPanel({
       <div className="results-matches">
         <p className="eyebrow">Preporuke</p>
         <h2>Najbolji match</h2>
-        {usingDemo && (
+        {usingDemo ? (
           <p className="demo-banner">
             Katalog prodavnice je još prazan — prikazan je demo katalog da vidiš
-            kako matching radi. Zameni ga stvarnim proizvodima u{' '}
-            <code>products.json</code>.
+            kako matching radi.
+          </p>
+        ) : (
+          <p className="demo-banner">
+            Preporuke iz dm.rs kataloga (nijansa + hex boja). Pokreni{' '}
+            <code>npm run scrape:dm</code> za osvežavanje.
           </p>
         )}
 
@@ -121,9 +125,24 @@ export function ResultsPanel({
                         aria-hidden="true"
                       />
                       <div className="match-meta">
-                        <p className="product-name">{product.name}</p>
-                        <p className="product-brand">{product.brand}</p>
+                        <p className="product-name">
+                          {product.shadeName || product.name}
+                        </p>
+                        <p className="product-brand">
+                          {product.brand}
+                          {product.source === 'dm' ? ' · dm.rs' : ''}
+                        </p>
                         <p className="product-reason">{reasons[0]}</p>
+                        {product.url && (
+                          <a
+                            className="product-link"
+                            href={product.url}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            Otvori na dm.rs
+                          </a>
+                        )}
                       </div>
                       <span className="match-score">{Math.round(score)}%</span>
                     </li>

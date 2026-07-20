@@ -422,6 +422,19 @@
   color: var(--ink-soft);
 }
 
+.product-link {
+  display: inline-block;
+  margin-top: 0.25rem;
+  font-size: 0.85rem;
+  color: var(--blush-deep);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.product-link:hover {
+  text-decoration: underline;
+}
+
 .match-score {
   font-family: var(--font-display);
   font-weight: 700;
