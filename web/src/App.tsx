@@ -209,15 +209,46 @@ export default function App() {
           </header>
           <footer className="landing-bottom">
             <div className="cta-group">
-              <button type="button" className="btn-primary" onClick={startCamera}>
-                {t('landing.takeSelfie')}
+              <button
+                type="button"
+                className="cta-tile cta-tile-primary"
+                onClick={startCamera}
+              >
+                <svg
+                  className="cta-tile-icon"
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.75"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M4 8.5h2.2l1.3-2.2h9l1.3 2.2H20a1.5 1.5 0 0 1 1.5 1.5v8A1.5 1.5 0 0 1 20 19.5H4A1.5 1.5 0 0 1 2.5 18v-8A1.5 1.5 0 0 1 4 8.5Z" />
+                  <circle cx="12" cy="13.5" r="3.25" />
+                </svg>
+                <span>{t('landing.takeSelfie')}</span>
               </button>
               <button
                 type="button"
-                className="btn-secondary landing-secondary"
+                className="cta-tile cta-tile-secondary"
                 onClick={openUploadPicker}
               >
-                {t('landing.uploadSelfie')}
+                <svg
+                  className="cta-tile-icon"
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.75"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M12 15.5V4.5" />
+                  <path d="m8 8 4-3.5L16 8" />
+                  <path d="M4.5 14.5v3A2 2 0 0 0 6.5 19.5h11a2 2 0 0 0 2-2v-3" />
+                </svg>
+                <span>{t('landing.uploadSelfie')}</span>
               </button>
             </div>
           </footer>
