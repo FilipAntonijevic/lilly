@@ -9,6 +9,17 @@ import type { MakeupProduct } from '../types'
 import { useLanguage } from '../i18n/LanguageContext'
 import { findShadeVariants } from '../lib/shadeFamilies'
 
+/** Short light tap — same feel for press and drag-enter. */
+function tickHaptic() {
+  try {
+    if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
+      navigator.vibrate(8)
+    }
+  } catch {
+    /* unsupported / denied */
+  }
+}
+
 function formatPriceRsd(
   price: number | undefined,
   unavailable: string,
@@ -43,6 +54,7 @@ export function ProductCard({ product, catalog }: ProductCardProps) {
   const [imgFailed, setImgFailed] = useState(false)
   const [dragging, setDragging] = useState(false)
   const draggingRef = useRef(false)
+  const selectedIdRef = useRef(product.id)
   const dotsRef = useRef<HTMLDivElement>(null)
   const variantsById = useMemo(() => {
     const map = new Map<string, MakeupProduct>()
@@ -52,12 +64,20 @@ export function ProductCard({ product, catalog }: ProductCardProps) {
 
   useEffect(() => {
     setSelected(product)
+    selectedIdRef.current = product.id
     setImgFailed(false)
   }, [product.id])
 
   useEffect(() => {
     setImgFailed(false)
   }, [selected.id])
+
+  function selectShade(next: MakeupProduct, haptic: boolean) {
+    if (next.id === selectedIdRef.current) return
+    selectedIdRef.current = next.id
+    setSelected(next)
+    if (haptic) tickHaptic()
+  }
 
   function selectFromPoint(clientX: number, clientY: number) {
     const el = document.elementFromPoint(clientX, clientY)
@@ -66,7 +86,7 @@ export function ProductCard({ product, catalog }: ProductCardProps) {
     const id = btn.dataset.shadeId
     if (!id) return
     const next = variantsById.get(id)
-    if (next) setSelected(next)
+    if (next) selectShade(next, true)
   }
 
   function onShadePointerDown(event: ReactPointerEvent<HTMLButtonElement>) {
@@ -75,7 +95,11 @@ export function ProductCard({ product, catalog }: ProductCardProps) {
     const id = event.currentTarget.dataset.shadeId
     if (id) {
       const next = variantsById.get(id)
-      if (next) setSelected(next)
+      // Always tick on press, even if already selected (same as tapping that circle).
+      if (next) {
+        if (next.id === selectedIdRef.current) tickHaptic()
+        else selectShade(next, true)
+      }
     }
     draggingRef.current = true
     setDragging(true)
@@ -91,7 +115,7 @@ export function ProductCard({ product, catalog }: ProductCardProps) {
   function onShadePointerUp(event: ReactPointerEvent<HTMLButtonElement>) {
     if (!draggingRef.current) return
     event.preventDefault()
-    selectFromPoint(event.clientX, event.clientY)
+    // No extra haptic on release — only when shade actually changes while dragging.
     draggingRef.current = false
     setDragging(false)
     try {
