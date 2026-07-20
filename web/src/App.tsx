@@ -12,6 +12,7 @@ export default function App() {
   const [photoUrl, setPhotoUrl] = useState<string | null>(null)
   const [profile, setProfile] = useState<SkinProfile | null>(null)
   const [matches, setMatches] = useState<ProductMatch[]>([])
+  const [analyzingLabel, setAnalyzingLabel] = useState('Analiziram ton kože…')
 
   const catalog = useMemo(() => getActiveCatalog(), [])
 
@@ -21,12 +22,13 @@ export default function App() {
 
   function handleCapture(canvas: HTMLCanvasElement) {
     setPhase('analyzing')
+    setAnalyzingLabel('Detektujem lice…')
     setPhotoUrl(canvas.toDataURL('image/jpeg', 0.92))
 
-    // Short delay so UI can show analyzing state
-    window.setTimeout(() => {
+    void (async () => {
       try {
-        const skin = analyzeCapturedImage(canvas)
+        setAnalyzingLabel('Merim jagodice, čelo i vilicu…')
+        const skin = await analyzeCapturedImage(canvas)
         const { top } = matchProducts(catalog.products, skin, {
           perCategory: 2,
           overallLimit: 12,
@@ -37,7 +39,7 @@ export default function App() {
       } catch {
         setPhase('camera')
       }
-    }, 650)
+    })()
   }
 
   function retake() {
@@ -57,8 +59,8 @@ export default function App() {
             <p className="brand">Lilly</p>
             <h1>Pronađi sminku koja odgovara tvom tonu.</h1>
             <p className="lead">
-              Uključi kameru, uslikaj se i dobij preporuke po boji kože i
-              undertone-u.
+              Uključi kameru, uslikaj se i dobij preporuke po boji kože sa
+              jagodica, čela i vilice.
             </p>
             <button type="button" className="btn-primary" onClick={startCamera}>
               Otvori kameru
@@ -72,7 +74,7 @@ export default function App() {
           <header className="studio-top">
             <p className="brand compact">Lilly</p>
             {phase === 'analyzing' && (
-              <p className="analyzing-label">Analiziram ton kože…</p>
+              <p className="analyzing-label">{analyzingLabel}</p>
             )}
           </header>
           <CameraStage

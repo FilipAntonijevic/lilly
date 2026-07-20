@@ -284,10 +284,44 @@
   font-size: clamp(1.8rem, 4vw, 2.4rem);
 }
 
+.mesh-status {
+  margin: -0.35rem 0 1rem;
+  font-size: 0.9rem;
+  color: var(--ink-soft);
+  line-height: 1.4;
+}
+
 .swatch-row {
   display: flex;
   gap: 0.6rem;
   margin-bottom: 1.25rem;
+}
+
+.region-block {
+  margin-top: 1.5rem;
+}
+
+.region-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.region-item {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  font-size: 0.95rem;
+}
+
+.region-swatch {
+  width: 1.6rem;
+  height: 1.6rem;
+  border-radius: 0.4rem;
+  border: 1px solid var(--line);
+  flex-shrink: 0;
 }
 
 .swatch {

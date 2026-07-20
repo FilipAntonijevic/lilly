@@ -1,4 +1,10 @@
-import type { HairFamily, HairTemperature, LabColor, SkinProfile } from '../types'
+import type {
+  FaceRegionSample,
+  HairFamily,
+  HairTemperature,
+  LabColor,
+  SkinProfile,
+} from '../types'
 import {
   classifyUndertone,
   computeIta,
@@ -7,6 +13,12 @@ import {
   rgbToHex,
   rgbToLab,
 } from './color'
+import {
+  MAKEUP_REGIONS,
+  detectFaceLandmarks,
+  type Landmark,
+  type MakeupRegionKey,
+} from './faceLandmarker'
 
 interface SampleRegion {
   x0: number
@@ -63,56 +75,153 @@ function sampleMeanLab(
   return { lab: rgbToLab(r, g, b), rgb: [r, g, b], count }
 }
 
-/** Reject wall/background and skin so hair average isn't washed out. */
 function isLikelyHairPixel(r: number, g: number, b: number): boolean {
   if (isLikelySkinPixel(r, g, b)) return false
-
   const lab = rgbToLab(r, g, b)
   const chroma = Math.hypot(lab.a, lab.b)
-
-  // Near-white / ceiling / wall
   if (lab.L > 82 && chroma < 18) return false
-  // Very bright low-chroma glare
   if (lab.L > 88) return false
-  // Pure black noise / deep shadow voids — keep dark hair, drop empty bg
   if (lab.L < 6 && chroma < 4) return false
-
   return true
 }
 
-/**
- * Sample hair from several head regions; use median-darker pixels
- * so bright background doesn't pull the mean toward blonde.
- */
-function sampleHair(
+function sampleDisk(
   data: Uint8ClampedArray,
   width: number,
   height: number,
+  cx: number,
+  cy: number,
+  radius: number,
+  predicate: (r: number, g: number, b: number) => boolean,
 ): { lab: LabColor; rgb: [number, number, number]; count: number } {
-  const regions = [
-    // crown
-    clampRegion({ x0: 0.3, y0: 0.02, x1: 0.7, y1: 0.14 }, width, height),
-    // left temple / hairline
-    clampRegion({ x0: 0.08, y0: 0.12, x1: 0.26, y1: 0.42 }, width, height),
-    // right temple / hairline
-    clampRegion({ x0: 0.74, y0: 0.12, x1: 0.92, y1: 0.42 }, width, height),
-  ]
+  const x0 = Math.max(0, Math.floor(cx - radius))
+  const y0 = Math.max(0, Math.floor(cy - radius))
+  const x1 = Math.min(width, Math.ceil(cx + radius))
+  const y1 = Math.min(height, Math.ceil(cy + radius))
+  const r2 = radius * radius
 
+  let rSum = 0
+  let gSum = 0
+  let bSum = 0
+  let count = 0
+
+  for (let y = y0; y < y1; y += 1) {
+    for (let x = x0; x < x1; x += 1) {
+      const dx = x - cx
+      const dy = y - cy
+      if (dx * dx + dy * dy > r2) continue
+      const i = (y * width + x) * 4
+      const r = data[i]
+      const g = data[i + 1]
+      const b = data[i + 2]
+      if (!predicate(r, g, b)) continue
+      rSum += r
+      gSum += g
+      bSum += b
+      count++
+    }
+  }
+
+  if (!count) {
+    return { lab: { L: 60, a: 10, b: 15 }, rgb: [180, 140, 120], count: 0 }
+  }
+
+  const r = rSum / count
+  const g = gSum / count
+  const b = bSum / count
+  return { lab: rgbToLab(r, g, b), rgb: [r, g, b], count }
+}
+
+function sampleLandmarkCluster(
+  data: Uint8ClampedArray,
+  width: number,
+  height: number,
+  landmarks: Landmark[],
+  indices: readonly number[],
+  radiusPx: number,
+  predicate: (r: number, g: number, b: number) => boolean,
+): { lab: LabColor; rgb: [number, number, number]; count: number } {
+  let rSum = 0
+  let gSum = 0
+  let bSum = 0
+  let count = 0
+
+  for (const idx of indices) {
+    const lm = landmarks[idx]
+    if (!lm) continue
+    const sample = sampleDisk(
+      data,
+      width,
+      height,
+      lm.x * width,
+      lm.y * height,
+      radiusPx,
+      predicate,
+    )
+    if (!sample.count) continue
+    rSum += sample.rgb[0] * sample.count
+    gSum += sample.rgb[1] * sample.count
+    bSum += sample.rgb[2] * sample.count
+    count += sample.count
+  }
+
+  if (!count) {
+    return { lab: { L: 60, a: 10, b: 15 }, rgb: [180, 140, 120], count: 0 }
+  }
+
+  const r = rSum / count
+  const g = gSum / count
+  const b = bSum / count
+  return { lab: rgbToLab(r, g, b), rgb: [r, g, b], count }
+}
+
+/** Sample hair above the detected hairline landmarks. */
+function sampleHairFromLandmarks(
+  data: Uint8ClampedArray,
+  width: number,
+  height: number,
+  landmarks: Landmark[],
+): { lab: LabColor; rgb: [number, number, number]; count: number } {
   const luminances: number[] = []
   const pixels: Array<[number, number, number]> = []
+  const radius = Math.max(10, Math.round(Math.min(width, height) * 0.035))
 
-  for (const region of regions) {
-    for (let y = region.y0; y < region.y1; y += 2) {
-      for (let x = region.x0; x < region.x1; x += 2) {
+  for (const idx of MAKEUP_REGIONS.hairline) {
+    const lm = landmarks[idx]
+    if (!lm) continue
+    const cx = lm.x * width
+    // Move upward from hairline into hair (y grows downward)
+    const cy = Math.max(0, lm.y * height - radius * 1.6)
+
+    for (let y = Math.max(0, Math.floor(cy - radius)); y < Math.min(height, cy + radius); y++) {
+      for (let x = Math.max(0, Math.floor(cx - radius)); x < Math.min(width, cx + radius); x++) {
+        const dx = x - cx
+        const dy = y - cy
+        if (dx * dx + dy * dy > radius * radius) continue
         const i = (y * width + x) * 4
         const r = data[i]
         const g = data[i + 1]
         const b = data[i + 2]
         if (!isLikelyHairPixel(r, g, b)) continue
-        const L = 0.2126 * r + 0.7152 * g + 0.0722 * b
-        luminances.push(L)
+        luminances.push(0.2126 * r + 0.7152 * g + 0.0722 * b)
         pixels.push([r, g, b])
       }
+    }
+  }
+
+  // Temples as backup hair anchors
+  for (const idx of [234, 454, 127, 356]) {
+    const lm = landmarks[idx]
+    if (!lm) continue
+    const cx = lm.x * width
+    const cy = lm.y * height
+    const outward = idx === 234 || idx === 127 ? -1 : 1
+    const hx = cx + outward * radius * 0.9
+    const sample = sampleDisk(data, width, height, hx, cy, radius, isLikelyHairPixel)
+    if (!sample.count) continue
+    for (let n = 0; n < sample.count; n++) {
+      luminances.push(0.2126 * sample.rgb[0] + 0.7152 * sample.rgb[1] + 0.0722 * sample.rgb[2])
+      pixels.push([sample.rgb[0], sample.rgb[1], sample.rgb[2]])
     }
   }
 
@@ -120,7 +229,6 @@ function sampleHair(
     return { lab: { L: 40, a: 8, b: 12 }, rgb: [90, 70, 55], count: 0 }
   }
 
-  // Keep the darker 60% of candidates (hair), drop bright outliers (wall/highlights)
   const sorted = [...luminances].sort((a, b) => a - b)
   const cutoff = sorted[Math.floor(sorted.length * 0.6)] ?? sorted[sorted.length - 1]
 
@@ -137,7 +245,6 @@ function sampleHair(
   }
 
   if (count < 12) {
-    // fallback: use all accepted hair pixels
     rSum = 0
     gSum = 0
     bSum = 0
@@ -160,39 +267,18 @@ function classifyHair(
   lab: LabColor,
   rgb: [number, number, number],
 ): { family: HairFamily; temperature: HairTemperature; hex: string } {
-  const [r, g, b] = rgb
-  const hex = rgbToHex(r, g, b)
+  const hex = rgbToHex(rgb[0], rgb[1], rgb[2])
   const chroma = Math.hypot(lab.a, lab.b)
   const warmYellow = lab.b > lab.a + 2
 
   let family: HairFamily = 'unknown'
-
-  // Black / very dark brown
-  if (lab.L < 20) {
-    family = 'black'
-  }
-  // Red / auburn — strong red-yellow chroma
-  else if (lab.a > 14 && lab.b > 12 && lab.a + lab.b > 32 && lab.L < 62) {
-    family = 'red'
-  }
-  // Gray / ash — light but desaturated
-  else if (lab.L > 48 && chroma < 10) {
-    family = 'gray'
-  }
-  // Blonde — only truly light golden / pale hair (stricter than before)
-  else if (lab.L >= 68 && chroma < 28 && warmYellow) {
-    family = 'blonde'
-  } else if (lab.L >= 72 && chroma < 22) {
-    family = 'blonde'
-  }
-  // Light brown — what was incorrectly called blonde under bright light
-  else if (lab.L >= 42 && lab.L < 68) {
-    family = 'light_brown'
-  }
-  // Medium / dark brown
-  else if (lab.L >= 20) {
-    family = 'brown'
-  }
+  if (lab.L < 20) family = 'black'
+  else if (lab.a > 14 && lab.b > 12 && lab.a + lab.b > 32 && lab.L < 62) family = 'red'
+  else if (lab.L > 48 && chroma < 10) family = 'gray'
+  else if (lab.L >= 68 && chroma < 28 && warmYellow) family = 'blonde'
+  else if (lab.L >= 72 && chroma < 22) family = 'blonde'
+  else if (lab.L >= 42 && lab.L < 68) family = 'light_brown'
+  else if (lab.L >= 20) family = 'brown'
 
   let temperature: HairTemperature = 'neutral'
   if (lab.b > lab.a + 3) temperature = 'warm'
@@ -201,21 +287,194 @@ function classifyHair(
   return { family, temperature, hex }
 }
 
-/**
- * Analyze a captured selfie canvas.
- * Uses cheek + forehead bands for skin and multi-region hair sampling.
- * MVP heuristic — no ML face mesh yet.
- */
-export function analyzeCapturedImage(canvas: HTMLCanvasElement): SkinProfile {
-  const ctx = canvas.getContext('2d', { willReadFrequently: true })
-  if (!ctx) {
-    throw new Error('Canvas 2D context unavailable')
+const REGION_META: Record<
+  Exclude<MakeupRegionKey, 'hairline' | 'underEyeLeft' | 'underEyeRight'>,
+  { id: FaceRegionSample['id']; label: string }
+> = {
+  forehead: { id: 'forehead', label: 'Čelo' },
+  leftCheek: { id: 'leftCheek', label: 'Leva jagodica' },
+  rightCheek: { id: 'rightCheek', label: 'Desna jagodica' },
+  jaw: { id: 'jaw', label: 'Vilica / vrat' },
+}
+
+function toRegionSample(
+  id: FaceRegionSample['id'],
+  label: string,
+  sample: { lab: LabColor; rgb: [number, number, number]; count: number },
+): FaceRegionSample {
+  return {
+    id,
+    label,
+    hex: rgbToHex(sample.rgb[0], sample.rgb[1], sample.rgb[2]),
+    lab: sample.lab,
+    pixelCount: sample.count,
+  }
+}
+
+function analyzeWithLandmarks(
+  data: Uint8ClampedArray,
+  width: number,
+  height: number,
+  landmarks: Landmark[],
+): SkinProfile {
+  const radius = Math.max(8, Math.round(Math.min(width, height) * 0.028))
+  const skinPred = (r: number, g: number, b: number) => isLikelySkinPixel(r, g, b)
+
+  const forehead = sampleLandmarkCluster(
+    data,
+    width,
+    height,
+    landmarks,
+    MAKEUP_REGIONS.forehead,
+    radius,
+    skinPred,
+  )
+  const leftCheek = sampleLandmarkCluster(
+    data,
+    width,
+    height,
+    landmarks,
+    MAKEUP_REGIONS.leftCheek,
+    radius,
+    skinPred,
+  )
+  const rightCheek = sampleLandmarkCluster(
+    data,
+    width,
+    height,
+    landmarks,
+    MAKEUP_REGIONS.rightCheek,
+    radius,
+    skinPred,
+  )
+  const jaw = sampleLandmarkCluster(
+    data,
+    width,
+    height,
+    landmarks,
+    MAKEUP_REGIONS.jaw,
+    radius,
+    skinPred,
+  )
+  const underEyeLeft = sampleLandmarkCluster(
+    data,
+    width,
+    height,
+    landmarks,
+    MAKEUP_REGIONS.underEyeLeft,
+    Math.round(radius * 0.75),
+    skinPred,
+  )
+  const underEyeRight = sampleLandmarkCluster(
+    data,
+    width,
+    height,
+    landmarks,
+    MAKEUP_REGIONS.underEyeRight,
+    Math.round(radius * 0.75),
+    skinPred,
+  )
+
+  // Foundation / undertone: cheeks + jaw (most stable for makeup match)
+  const foundationZones = [leftCheek, rightCheek, jaw].filter((z) => z.count > 0)
+  const zones =
+    foundationZones.length > 0
+      ? foundationZones
+      : [forehead, leftCheek, rightCheek, jaw].filter((z) => z.count > 0)
+
+  let rSum = 0
+  let gSum = 0
+  let bSum = 0
+  let total = 0
+  for (const z of zones) {
+    rSum += z.rgb[0] * z.count
+    gSum += z.rgb[1] * z.count
+    bSum += z.rgb[2] * z.count
+    total += z.count
   }
 
-  const { width, height } = canvas
-  const { data } = ctx.getImageData(0, 0, width, height)
+  if (total < 20) {
+    throw new Error('Too few skin pixels in face regions')
+  }
 
-  // Mirror-selfie friendly cheek patches + forehead
+  const r = rSum / total
+  const g = gSum / total
+  const b = bSum / total
+  const lab = rgbToLab(r, g, b)
+  const ita = computeIta(lab)
+  const depth = itaToDepth(ita)
+  const { undertone, confidence } = classifyUndertone(lab)
+
+  const hairSample = sampleHairFromLandmarks(data, width, height, landmarks)
+  const hair = classifyHair(hairSample.lab, hairSample.rgb)
+
+  const underEyeCount = underEyeLeft.count + underEyeRight.count
+  const underEye =
+    underEyeCount > 0
+      ? {
+          lab: rgbToLab(
+            (underEyeLeft.rgb[0] * underEyeLeft.count +
+              underEyeRight.rgb[0] * underEyeRight.count) /
+              underEyeCount,
+            (underEyeLeft.rgb[1] * underEyeLeft.count +
+              underEyeRight.rgb[1] * underEyeRight.count) /
+              underEyeCount,
+            (underEyeLeft.rgb[2] * underEyeLeft.count +
+              underEyeRight.rgb[2] * underEyeRight.count) /
+              underEyeCount,
+          ),
+          rgb: [
+            (underEyeLeft.rgb[0] * underEyeLeft.count +
+              underEyeRight.rgb[0] * underEyeRight.count) /
+              underEyeCount,
+            (underEyeLeft.rgb[1] * underEyeLeft.count +
+              underEyeRight.rgb[1] * underEyeRight.count) /
+              underEyeCount,
+            (underEyeLeft.rgb[2] * underEyeLeft.count +
+              underEyeRight.rgb[2] * underEyeRight.count) /
+              underEyeCount,
+          ] as [number, number, number],
+          count: underEyeCount,
+        }
+      : null
+
+  const regions: FaceRegionSample[] = [
+    toRegionSample('forehead', REGION_META.forehead.label, forehead),
+    toRegionSample('leftCheek', REGION_META.leftCheek.label, leftCheek),
+    toRegionSample('rightCheek', REGION_META.rightCheek.label, rightCheek),
+    toRegionSample('jaw', REGION_META.jaw.label, jaw),
+  ]
+  if (underEye) {
+    regions.push(toRegionSample('underEye', 'Ispod očiju', underEye))
+  }
+  regions.push(
+    toRegionSample('hair', 'Kosa', {
+      lab: hairSample.lab,
+      rgb: hairSample.rgb,
+      count: hairSample.count,
+    }),
+  )
+
+  return {
+    lab,
+    hex: rgbToHex(r, g, b),
+    ita,
+    depth,
+    undertone,
+    undertoneConfidence: confidence,
+    hair,
+    sampledPixels: total,
+    usedFaceMesh: true,
+    regions: regions.filter((region) => region.pixelCount > 0),
+  }
+}
+
+/** Heuristic fallback when Face Landmarker cannot find a face. */
+function analyzeHeuristic(
+  data: Uint8ClampedArray,
+  width: number,
+  height: number,
+): SkinProfile {
   const regions = [
     clampRegion({ x0: 0.22, y0: 0.38, x1: 0.38, y1: 0.58 }, width, height),
     clampRegion({ x0: 0.62, y0: 0.38, x1: 0.78, y1: 0.58 }, width, height),
@@ -236,7 +495,6 @@ export function analyzeCapturedImage(canvas: HTMLCanvasElement): SkinProfile {
     total += sample.count
   }
 
-  // Fallback: wider center oval without skin filter
   if (total < 40) {
     const fallback = clampRegion(
       { x0: 0.3, y0: 0.28, x1: 0.7, y1: 0.65 },
@@ -255,20 +513,53 @@ export function analyzeCapturedImage(canvas: HTMLCanvasElement): SkinProfile {
   const b = bSum / Math.max(total, 1)
   const lab = rgbToLab(r, g, b)
   const ita = computeIta(lab)
-  const depth = itaToDepth(ita)
   const { undertone, confidence } = classifyUndertone(lab)
 
-  const hairSample = sampleHair(data, width, height)
+  const hairRegion = clampRegion(
+    { x0: 0.28, y0: 0.02, x1: 0.72, y1: 0.14 },
+    width,
+    height,
+  )
+  const hairSample = sampleMeanLab(data, width, hairRegion, false)
   const hair = classifyHair(hairSample.lab, hairSample.rgb)
 
   return {
     lab,
     hex: rgbToHex(r, g, b),
     ita,
-    depth,
+    depth: itaToDepth(ita),
     undertone,
     undertoneConfidence: confidence,
     hair,
     sampledPixels: total,
+    usedFaceMesh: false,
+    regions: [],
   }
+}
+
+/**
+ * Analyze a captured selfie with MediaPipe Face Landmarker when possible.
+ * Samples makeup-relevant regions: cheeks, forehead, jaw, under-eye, hairline.
+ */
+export async function analyzeCapturedImage(
+  canvas: HTMLCanvasElement,
+): Promise<SkinProfile> {
+  const ctx = canvas.getContext('2d', { willReadFrequently: true })
+  if (!ctx) {
+    throw new Error('Canvas 2D context unavailable')
+  }
+
+  const { width, height } = canvas
+  const { data } = ctx.getImageData(0, 0, width, height)
+
+  try {
+    const landmarks = await detectFaceLandmarks(canvas)
+    if (landmarks) {
+      return analyzeWithLandmarks(data, width, height, landmarks)
+    }
+  } catch {
+    // fall through to heuristic
+  }
+
+  return analyzeHeuristic(data, width, height)
 }

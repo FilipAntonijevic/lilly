@@ -65,7 +65,8 @@ npm run deploy
 
 ## Algoritam (MVP)
 
-- Skin sample: obrazi + čelo, YCbCr skin gate
-- ITA → dubina tena (very light → very deep)
-- Undertone iz a\*/b\* (cool / warm / neutral / olive)
+- **MediaPipe Face Landmarker** (478 tačaka) deli lice na regione bitne za sminku: jagodice, čelo, vilica, ispod očiju, hairline
+- Foundation / undertone se računa iz jagodica + vilice (stabilnije od čela)
+- ITA → dubina tena; undertone iz a\*/b\* (cool / warm / neutral / olive)
 - Matching: undertone + dubina + ΔE76 za bazu; color-theory palete + ton kose za blush/lipstick/eyeshadow
+- Ako face mesh ne nađe lice, koristi se rezervni heuristički režim

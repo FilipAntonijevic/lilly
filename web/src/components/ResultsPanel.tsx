@@ -30,6 +30,11 @@ export function ResultsPanel({
         <div className="results-profile">
           <p className="eyebrow">Analiza lica</p>
           <h2>Tvoj ton</h2>
+          <p className="mesh-status">
+            {profile.usedFaceMesh
+              ? 'Face mesh: detektovani regioni (jagodice, čelo, vilica…)'
+              : 'Face mesh nije detektovao lice — korišćen je rezervni režim'}
+          </p>
           <div className="swatch-row">
             <span className="swatch" style={{ background: profile.hex }} title="Koža" />
             <span
@@ -58,6 +63,25 @@ export function ResultsPanel({
               </strong>
             </li>
           </ul>
+
+          {profile.regions.length > 0 && (
+            <div className="region-block">
+              <p className="eyebrow">Regioni</p>
+              <ul className="region-list">
+                {profile.regions.map((region) => (
+                  <li key={region.id} className="region-item">
+                    <span
+                      className="region-swatch"
+                      style={{ background: region.hex }}
+                      aria-hidden="true"
+                    />
+                    <span>{region.label}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           <button type="button" className="btn-secondary" onClick={onRetake}>
             Nova slika
           </button>

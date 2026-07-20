@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { preloadFaceLandmarker } from '../lib/faceLandmarker'
 
 interface CameraStageProps {
   onCapture: (canvas: HTMLCanvasElement) => void
@@ -11,6 +12,10 @@ export function CameraStage({ onCapture, disabled }: CameraStageProps) {
   const [error, setError] = useState<string | null>(null)
   const [ready, setReady] = useState(false)
   const [flash, setFlash] = useState(false)
+
+  useEffect(() => {
+    preloadFaceLandmarker()
+  }, [])
 
   useEffect(() => {
     let cancelled = false

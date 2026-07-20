@@ -31,6 +31,22 @@ export interface LabColor {
   b: number
 }
 
+export type FaceRegionId =
+  | 'forehead'
+  | 'leftCheek'
+  | 'rightCheek'
+  | 'jaw'
+  | 'underEye'
+  | 'hair'
+
+export interface FaceRegionSample {
+  id: FaceRegionId
+  label: string
+  hex: string
+  lab: LabColor
+  pixelCount: number
+}
+
 export interface SkinProfile {
   lab: LabColor
   hex: string
@@ -44,6 +60,10 @@ export interface SkinProfile {
     hex: string
   }
   sampledPixels: number
+  /** True when MediaPipe Face Landmarker located facial landmarks */
+  usedFaceMesh: boolean
+  /** Per-region color samples (cheeks, forehead, jaw, …) */
+  regions: FaceRegionSample[]
 }
 
 export interface MakeupProduct {
