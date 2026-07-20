@@ -130,6 +130,9 @@ export function CameraStage({ onCapture, disabled }: CameraStageProps) {
         aria-label="Pregled kamere"
       />
       <div className="camera-frame" aria-hidden="true" />
+      {!error && ready && !disabled && (
+        <p className="camera-guide">keep your face contained within the lines</p>
+      )}
       {flash && <div className="camera-flash" aria-hidden="true" />}
 
       {error ? (

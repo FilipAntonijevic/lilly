@@ -210,6 +210,23 @@
   animation: frame-in 0.9s 0.2s ease both;
 }
 
+.camera-guide {
+  position: absolute;
+  left: 50%;
+  top: calc(46% + min(36vw, 160px) + 0.85rem);
+  transform: translateX(-50%);
+  z-index: 2;
+  margin: 0;
+  max-width: min(78vw, 280px);
+  text-align: center;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  letter-spacing: 0.02em;
+  color: rgba(255, 248, 243, 0.72);
+  pointer-events: none;
+  animation: fade-in 0.6s 0.35s ease both;
+}
+
 .camera-flash {
   position: absolute;
   inset: 0;
