@@ -7,7 +7,14 @@ export type SkinDepth =
   | 'deep'
   | 'very_deep'
 
-export type HairFamily = 'blonde' | 'brown' | 'black' | 'red' | 'gray' | 'unknown'
+export type HairFamily =
+  | 'blonde'
+  | 'light_brown'
+  | 'brown'
+  | 'black'
+  | 'red'
+  | 'gray'
+  | 'unknown'
 export type HairTemperature = 'cool' | 'warm' | 'neutral'
 
 export type ProductCategory =

@@ -80,7 +80,10 @@ function hairHarmony(product: MakeupProduct, skin: SkinProfile): number {
   if (family === 'red' && tags.some((t) => ['bronze', 'copper', 'warm-nude', 'terracotta'].includes(t))) {
     score += 0.15
   }
-  if (family === 'blonde' && tags.some((t) => ['peach', 'soft-pink', 'nude', 'champagne'].includes(t))) {
+  if (
+    (family === 'blonde' || family === 'light_brown') &&
+    tags.some((t) => ['peach', 'soft-pink', 'nude', 'champagne'].includes(t))
+  ) {
     score += 0.1
   }
   if (family === 'black' && tags.some((t) => ['plum', 'berry', 'brick', 'gold'].includes(t))) {

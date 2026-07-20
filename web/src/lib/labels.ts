@@ -25,6 +25,7 @@ export function undertoneLabel(u: Undertone): string {
 export function hairLabel(family: HairFamily): string {
   const map: Record<HairFamily, string> = {
     blonde: 'Plava',
+    light_brown: 'Svetlo braon',
     brown: 'Braon',
     black: 'Crna',
     red: 'Crvena',
