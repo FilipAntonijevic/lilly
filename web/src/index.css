@@ -1,0 +1,57 @@
+:root {
+  --ink: #1a1614;
+  --ink-soft: #3d342e;
+  --mist: #f3ebe4;
+  --blush: #e8a090;
+  --blush-deep: #c97868;
+  --foam: #fff8f3;
+  --line: rgba(26, 22, 20, 0.12);
+  --shadow: 0 24px 60px rgba(26, 22, 20, 0.18);
+  --font-display: 'Syne', sans-serif;
+  --font-body: 'Figtree', sans-serif;
+  color: var(--ink);
+  background: var(--mist);
+  font-family: var(--font-body);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  min-height: 100%;
+}
+
+body {
+  min-height: 100vh;
+  background:
+    radial-gradient(120% 80% at 10% 0%, rgba(232, 160, 144, 0.35), transparent 55%),
+    radial-gradient(90% 70% at 90% 10%, rgba(255, 248, 243, 0.9), transparent 50%),
+    linear-gradient(160deg, #efe4da 0%, #f7f0ea 45%, #e8d8cc 100%);
+}
+
+button {
+  font: inherit;
+  cursor: pointer;
+  border: none;
+}
+
+img {
+  max-width: 100%;
+  display: block;
+}
+
+code {
+  font-size: 0.9em;
+  background: rgba(26, 22, 20, 0.06);
+  padding: 0.1em 0.35em;
+  border-radius: 4px;
+}
