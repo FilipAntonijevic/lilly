@@ -125,11 +125,11 @@ export function ResultsPanel({
                         aria-hidden="true"
                       />
                       <div className="match-meta">
-                        <p className="product-name">
-                          {product.shadeName || product.name}
-                        </p>
+                        <p className="product-name">{product.name}</p>
                         <p className="product-brand">
                           {product.brand}
+                          {product.shadeName ? ` · nijansa ${product.shadeName}` : ''}
+                          {product.shadeHex ? ` · ${product.shadeHex}` : ''}
                           {product.source === 'dm' ? ' · dm.rs' : ''}
                         </p>
                         <p className="product-reason">{reasons[0]}</p>

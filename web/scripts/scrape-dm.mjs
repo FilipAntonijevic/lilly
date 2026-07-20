@@ -91,24 +91,36 @@ function inferCategory(title, dmCategories, hint) {
   return hint || null
 }
 
-/** Extract shade label from DM titles like "… – 20 Velvet sand, 1 kom" */
-function parseShadeName(title) {
+/** Extract shade label from DM titles like "… – 20 Velvet sand, 1 kom" or "… - 100, 1 kom" */
+function parseShadeName(title, url = '') {
   if (!title) return null
   const cleaned = title
-    .replace(/,?\s*\d+\s*ml\b.*$/i, '')
-    .replace(/,?\s*\d+\s*g\b.*$/i, '')
-    .replace(/,?\s*1\s*kom\b.*$/i, '')
+    .replace(/,?\s*\d+(?:[.,]\d+)?\s*ml\b.*$/i, '')
+    .replace(/,?\s*\d+(?:[.,]\d+)?\s*g\b.*$/i, '')
+    .replace(/,?\s*\d+\s*kom\b.*$/i, '')
     .trim()
 
+  // Prefer segment after the last dash separator
+  const dashParts = cleaned.split(/\s*[-–—]\s*/)
+  if (dashParts.length >= 2) {
+    const shade = dashParts[dashParts.length - 1].replace(/\s+/g, ' ').trim()
+    // Codes: 100 | 3.N Neutral | 24 Golden Beige | 02 Soft Beige
+    if (
+      /^\d/.test(shade) ||
+      /^(light|soft|dark|warm|cool|beige|ivory|nude|sand|rose|honey)/i.test(shade)
+    ) {
+      return shade
+    }
+  }
+
   const m = cleaned.match(
-    /(?:[-–—]|nijansa|:)\s*([0-9]{1,3}(?:\.[A-Z])?\s*[A-Za-zČĆŽŠĐčćžšđ].{0,40})$/u,
+    /(?:nijansa|:)\s*([0-9]{1,3}(?:\.[A-Za-z0-9]+)?\s*[A-Za-zČĆŽŠĐčćžšđ].{0,40})$/u,
   )
   if (m) return m[1].replace(/\s+/g, ' ').trim()
 
-  const m2 = cleaned.match(
-    /\b(\d{1,3}(?:\.[A-Z0-9]+)?\s+[A-Za-z][A-Za-zČĆŽŠĐčćžšđ /-]{1,30})$/u,
-  )
-  if (m2) return m2[1].replace(/\s+/g, ' ').trim()
+  // Fallback: trailing shade code from product URL slug (…-puder-100)
+  const fromUrl = String(url).match(/-(\d{2,3}(?:[.-][a-z0-9]+)?)(?:\/|$)/i)
+  if (fromUrl) return fromUrl[1]
 
   return null
 }
@@ -191,21 +203,35 @@ function productFromHit(hit, hint) {
   const category = inferCategory(title, dmCategories, hint)
   if (!category) return null
 
-  const shadeName = parseShadeName(title)
-  const meta = classifyFromHex(hex)
   const self = tile.self || ''
+  const shadeName = parseShadeName(title, self)
+  const meta = classifyFromHex(hex)
   const dan = String(hit.dan || tile.dan || '')
   const gtin = String(hit.gtin || tile.gtin || '')
   const imageUrl = tile.images?.[0]?.tileSrc || null
   const price = tile.trackingData?.price ?? null
+  const selectedTooltip = tile.variants?.tileColors?.find((c) => c.isSelected)?.tooltip
+  const colorFamily =
+    selectedTooltip && selectedTooltip.toLowerCase() !== 'nude'
+      ? String(selectedTooltip)
+      : null
+
+  const titleClean = title
+    .replace(/,?\s*\d+(?:[.,]\d+)?\s*ml\b.*$/i, '')
+    .replace(/,?\s*\d+(?:[.,]\d+)?\s*g\b.*$/i, '')
+    .replace(/,?\s*\d+\s*kom\b.*$/i, '')
+    .trim()
+  const titleParts = titleClean.split(/\s*[-–—]\s*/)
+  const lineName =
+    titleParts.length >= 2 ? titleParts.slice(0, -1).join(' - ').trim() : titleClean
 
   return {
     id: `dm-${dan || gtin}`,
-    name: shadeName ? `${title.split(/[-–—]/)[0].trim()} — ${shadeName}` : title,
+    name: shadeName ? `${lineName} — ${shadeName}` : title,
     brand,
     category,
     shadeHex: hex.startsWith('#') ? hex : `#${hex}`,
-    shadeName: shadeName || title,
+    shadeName: shadeName || colorFamily || title,
     undertone: meta.undertone,
     depthMin: meta.depthMin,
     depthMax: meta.depthMax,
