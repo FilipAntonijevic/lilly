@@ -28,6 +28,25 @@ function writeHistory(phase: HistoryPhase, mode: 'push' | 'replace') {
   }
 }
 
+async function imageFileToCanvas(file: File): Promise<HTMLCanvasElement> {
+  const bitmap = await createImageBitmap(file)
+  const maxSide = 1280
+  const scale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height))
+  const width = Math.max(1, Math.round(bitmap.width * scale))
+  const height = Math.max(1, Math.round(bitmap.height * scale))
+  const canvas = document.createElement('canvas')
+  canvas.width = width
+  canvas.height = height
+  const ctx = canvas.getContext('2d')
+  if (!ctx) {
+    bitmap.close()
+    throw new Error('Canvas 2D context unavailable')
+  }
+  ctx.drawImage(bitmap, 0, 0, width, height)
+  bitmap.close()
+  return canvas
+}
+
 export default function App() {
   const [phase, setPhase] = useState<AppPhase>('idle')
   const [photoUrl, setPhotoUrl] = useState<string | null>(null)
@@ -39,6 +58,7 @@ export default function App() {
     usingDemo: boolean
   } | null>(null)
   const analysisIdRef = useRef(0)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     void loadActiveCatalog().then(setCatalog)
@@ -76,6 +96,24 @@ export default function App() {
   function startCamera() {
     setPhase('camera')
     writeHistory('camera', 'push')
+  }
+
+  function openUploadPicker() {
+    fileInputRef.current?.click()
+  }
+
+  async function handleUploadFile(file: File | undefined) {
+    if (!file || !file.type.startsWith('image/')) return
+
+    try {
+      const canvas = await imageFileToCanvas(file)
+      handleCapture({
+        main: canvas,
+        calibrationFrames: [],
+      })
+    } catch {
+      /* stay on landing if decode fails */
+    }
   }
 
   function handleCapture(bundle: CaptureBundle) {
@@ -126,7 +164,7 @@ export default function App() {
           capturedAt,
           userAgent: navigator.userAgent,
         })
-        setPhase('camera')
+        setPhase('idle')
       }
     })()
   }
@@ -136,13 +174,28 @@ export default function App() {
     setProfile(null)
     setRoutine([])
     setPhotoUrl(null)
-    setPhase('camera')
-    writeHistory('camera', 'replace')
+    setPhase('idle')
+    writeHistory('idle', 'replace')
   }
 
   return (
     <div className={`app phase-${phase}`}>
       <div className="atmosphere" aria-hidden="true" />
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        className="sr-only"
+        tabIndex={-1}
+        aria-hidden="true"
+        onChange={(e) => {
+          const input = e.currentTarget
+          const file = input.files?.[0]
+          input.value = ''
+          void handleUploadFile(file)
+        }}
+      />
 
       {phase === 'idle' && (
         <section className="landing">
@@ -150,17 +203,26 @@ export default function App() {
             <p className="brand">Lilly</p>
             <h1>Pronađi sminku koja odgovara tvom tonu.</h1>
             <p className="lead">
-              Uslikaj se i dobij po jedan dm.rs proizvod za ten, ispod očiju,
-              jagodice, konturu, usne i oči.
+              Uslikaj se ili otpremi selfie i dobij po jedan dm.rs proizvod za
+              ten, ispod očiju, jagodice, konturu, usne i oči.
             </p>
             {catalog && !catalog.usingDemo && (
               <p className="catalog-count">
                 Katalog: {catalog.products.length} artikala sa dm.rs
               </p>
             )}
-            <button type="button" className="btn-primary" onClick={startCamera}>
-              Otvori kameru
-            </button>
+            <div className="cta-group">
+              <button type="button" className="btn-primary" onClick={startCamera}>
+                Take a selfie
+              </button>
+              <button
+                type="button"
+                className="btn-secondary landing-secondary"
+                onClick={openUploadPicker}
+              >
+                Upload a selfie
+              </button>
+            </div>
           </header>
         </section>
       )}
