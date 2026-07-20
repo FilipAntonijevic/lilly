@@ -1,0 +1,10 @@
+---
+description: User device preference for mobile guidance
+alwaysApply: true
+---
+
+# Device
+
+- The user uses **Android**.
+- Never ask whether they use iPhone or Android.
+- When giving mobile steps (browser shortcuts, PWA install, home screen, etc.), give **Android / Chrome** instructions only.
