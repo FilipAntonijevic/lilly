@@ -187,7 +187,7 @@ export default function App() {
       <input
         ref={fileInputRef}
         type="file"
-        accept="image/*"
+        accept="image/jpeg,image/png,image/webp,image/*"
         className="sr-only"
         tabIndex={-1}
         aria-hidden="true"
@@ -202,15 +202,12 @@ export default function App() {
       {phase === 'idle' && (
         <section className="landing">
           <LanguageToggle className="lang-toggle-landing" />
-          <header className="brand-block">
+          <header className="landing-top">
             <p className="brand">Lilly</p>
             <h1>{t('landing.headline')}</h1>
             <p className="lead">{t('landing.lead')}</p>
-            {catalog && !catalog.usingDemo && (
-              <p className="catalog-count">
-                {t('landing.catalogCount', { count: catalog.products.length })}
-              </p>
-            )}
+          </header>
+          <footer className="landing-bottom">
             <div className="cta-group">
               <button type="button" className="btn-primary" onClick={startCamera}>
                 {t('landing.takeSelfie')}
@@ -223,7 +220,7 @@ export default function App() {
                 {t('landing.uploadSelfie')}
               </button>
             </div>
-          </header>
+          </footer>
         </section>
       )}
 
