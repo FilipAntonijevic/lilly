@@ -568,31 +568,44 @@
 .shade-dots {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.45rem;
-  padding: 0 0.15rem 0.1rem;
+  gap: 0.55rem;
+  padding: 0.15rem 0.1rem 0.25rem;
+  touch-action: none;
+  user-select: none;
+}
+
+.shade-dots.is-dragging {
+  cursor: grabbing;
 }
 
 .shade-dot-btn {
-  width: 1.15rem;
-  height: 1.15rem;
+  width: 1.55rem;
+  height: 1.55rem;
   padding: 0;
   border-radius: 50%;
   border: 2px solid rgba(255, 248, 243, 0.95);
   box-shadow: 0 0 0 1px rgba(26, 22, 20, 0.18);
-  cursor: pointer;
+  cursor: grab;
   flex-shrink: 0;
+  touch-action: none;
   transition: transform 0.12s ease, box-shadow 0.12s ease;
 }
 
 .shade-dot-btn:hover {
-  transform: scale(1.08);
+  transform: scale(1.06);
 }
 
 .shade-dot-btn.is-selected {
   box-shadow:
-    0 0 0 2px var(--ink),
+    0 0 0 2.5px var(--ink),
     0 0 0 1px rgba(26, 22, 20, 0.2);
-  transform: scale(1.12);
+  transform: scale(1.18);
+  cursor: grab;
+}
+
+.shade-dots.is-dragging .shade-dot-btn,
+.shade-dots.is-dragging .shade-dot-btn.is-selected {
+  cursor: grabbing;
 }
 
 .zone-product-card.static {
