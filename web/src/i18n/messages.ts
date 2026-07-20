@@ -26,24 +26,15 @@ const sr = {
 
   'results.photoAlt': 'Tvoj snimak',
   'results.eyebrow': 'Analiza lica',
-  'results.title': 'Tvoj ton',
-  'results.meshOk':
-    'Face mesh: regioni mapirani na šminku (jagodice, čelo, vilica…)',
-  'results.meshFallback':
-    'Face mesh nije detektovao lice — korišćen je rezervni režim',
+  'results.title': 'Podaci o licu',
   'results.depth': 'Dubina tena',
   'results.fitzpatrick': 'Fitzpatrick',
   'results.undertone': 'Undertone',
   'results.ita': 'ITA',
   'results.hair': 'Kosa',
   'results.bald': 'Celavo',
-  'results.regions': 'Izmereni regioni',
   'results.retake': 'Nova slika',
-  'results.routineEyebrow': 'Rutina šminkanja',
-  'results.routineTitle': 'Po jedan proizvod po zoni lica',
-  'results.demoBanner': 'Demo katalog — dm.rs baza nije učitana.',
-  'results.liveBanner':
-    'Preporuke iz dm.rs kataloga ({count} artikala). Svaka zona = najbolji match za taj deo lica.',
+  'results.productsTitle': 'Preporučeni proizvodi',
   'results.emptyZone': 'Nema proizvoda u ovoj kategoriji.',
   'results.skin': 'Koža',
   'results.hairSwatch': 'Kosa',
@@ -174,24 +165,15 @@ const en: Record<MessageKey, string> = {
 
   'results.photoAlt': 'Your photo',
   'results.eyebrow': 'Face analysis',
-  'results.title': 'Your tone',
-  'results.meshOk':
-    'Face mesh: regions mapped for makeup (cheeks, forehead, jaw…)',
-  'results.meshFallback':
-    'Face mesh did not detect a face — using fallback mode',
+  'results.title': 'Face details',
   'results.depth': 'Skin depth',
   'results.fitzpatrick': 'Fitzpatrick',
   'results.undertone': 'Undertone',
   'results.ita': 'ITA',
   'results.hair': 'Hair',
   'results.bald': 'Bald',
-  'results.regions': 'Measured regions',
   'results.retake': 'New photo',
-  'results.routineEyebrow': 'Makeup routine',
-  'results.routineTitle': 'One product per face zone',
-  'results.demoBanner': 'Demo catalog — dm.rs database not loaded.',
-  'results.liveBanner':
-    'Recommendations from the dm.rs catalog ({count} items). Each zone = best match for that area.',
+  'results.productsTitle': 'Recommended products',
   'results.emptyZone': 'No products in this category.',
   'results.skin': 'Skin',
   'results.hairSwatch': 'Hair',

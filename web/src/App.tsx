@@ -249,8 +249,6 @@ export default function App() {
             photoUrl={photoUrl}
             profile={profile}
             routine={routine}
-            usingDemo={catalog.usingDemo}
-            catalogCount={catalog.products.length}
             onRetake={retake}
           />
         </>
