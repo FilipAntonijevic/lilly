@@ -79,11 +79,29 @@ export function ProductCard({ product, catalog }: ProductCardProps) {
     if (haptic) tickHaptic()
   }
 
-  function selectFromPoint(clientX: number, clientY: number) {
-    const el = document.elementFromPoint(clientX, clientY)
-    const btn = el?.closest<HTMLElement>('[data-shade-id]')
-    if (!btn || !dotsRef.current?.contains(btn)) return
-    const id = btn.dataset.shadeId
+  /**
+   * While finger is down, map only X to the nearest shade circle.
+   * Y can leave the row — drag continues until pointer up.
+   */
+  function selectFromClientX(clientX: number) {
+    const root = dotsRef.current
+    if (!root) return
+    const buttons = root.querySelectorAll<HTMLElement>('[data-shade-id]')
+    if (!buttons.length) return
+
+    let best: HTMLElement | null = null
+    let bestDist = Infinity
+    for (const btn of buttons) {
+      const rect = btn.getBoundingClientRect()
+      const cx = rect.left + rect.width / 2
+      const dist = Math.abs(clientX - cx)
+      if (dist < bestDist) {
+        bestDist = dist
+        best = btn
+      }
+    }
+    if (!best) return
+    const id = best.dataset.shadeId
     if (!id) return
     const next = variantsById.get(id)
     if (next) selectShade(next, true)
@@ -103,23 +121,34 @@ export function ProductCard({ product, catalog }: ProductCardProps) {
     }
     draggingRef.current = true
     setDragging(true)
-    event.currentTarget.setPointerCapture(event.pointerId)
+    // Capture on the track so moves keep coming after Y leaves the dots.
+    const track = dotsRef.current
+    if (track) {
+      try {
+        track.setPointerCapture(event.pointerId)
+      } catch {
+        event.currentTarget.setPointerCapture(event.pointerId)
+      }
+    } else {
+      event.currentTarget.setPointerCapture(event.pointerId)
+    }
   }
 
-  function onShadePointerMove(event: ReactPointerEvent<HTMLButtonElement>) {
+  function onShadePointerMove(event: ReactPointerEvent<HTMLElement>) {
     if (!draggingRef.current) return
     event.preventDefault()
-    selectFromPoint(event.clientX, event.clientY)
+    selectFromClientX(event.clientX)
   }
 
-  function onShadePointerUp(event: ReactPointerEvent<HTMLButtonElement>) {
+  function onShadePointerUp(event: ReactPointerEvent<HTMLElement>) {
     if (!draggingRef.current) return
     event.preventDefault()
-    // No extra haptic on release — only when shade actually changes while dragging.
+    selectFromClientX(event.clientX)
     draggingRef.current = false
     setDragging(false)
+    const track = dotsRef.current
     try {
-      event.currentTarget.releasePointerCapture(event.pointerId)
+      track?.releasePointerCapture(event.pointerId)
     } catch {
       /* already released */
     }
@@ -186,6 +215,9 @@ export function ProductCard({ product, catalog }: ProductCardProps) {
           className={dragging ? 'shade-dots is-dragging' : 'shade-dots'}
           role="listbox"
           aria-label={t('product.shades')}
+          onPointerMove={onShadePointerMove}
+          onPointerUp={onShadePointerUp}
+          onPointerCancel={onShadePointerUp}
         >
           {variants.map((variant) => {
             const selectedShade = variant.id === selected.id
@@ -203,9 +235,6 @@ export function ProductCard({ product, catalog }: ProductCardProps) {
                 title={variant.shadeName || variant.name}
                 aria-label={variant.shadeName || variant.name}
                 onPointerDown={onShadePointerDown}
-                onPointerMove={onShadePointerMove}
-                onPointerUp={onShadePointerUp}
-                onPointerCancel={onShadePointerUp}
                 onClick={(e) => {
                   // Selection already handled on pointerdown; block parent navigation.
                   e.preventDefault()
