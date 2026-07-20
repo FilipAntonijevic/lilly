@@ -4,6 +4,9 @@ import { rgbToHex } from './color'
 /** HuggingPics ViT fine-tune — includes explicit "completely bald". */
 export const HAIR_ML_MODEL = 'enzostvs/hair-color'
 
+/** Never block the shutter path longer than this if the model is already warm. */
+const HAIR_ML_INFER_BUDGET_MS = 1800
+
 export type HairMlLabel =
   | 'black hair'
   | 'blond hair'
@@ -30,27 +33,40 @@ type ImageClassifier = (
 ) => Promise<ClassificationOutput>
 
 let classifierPromise: Promise<ImageClassifier> | null = null
+let classifierReady = false
 
 async function getClassifier(): Promise<ImageClassifier> {
   if (!classifierPromise) {
     classifierPromise = (async () => {
       const { pipeline, env } = await import('@huggingface/transformers')
-      // Models download from HF Hub; cache in browser Cache API.
       env.allowLocalModels = false
       env.useBrowserCache = true
+      // Large ONNX on Hub (~340MB). Never await this from the shutter path.
       const pipe = await pipeline('image-classification', HAIR_ML_MODEL, {
         dtype: 'fp32',
       })
+      classifierReady = true
       return pipe as unknown as ImageClassifier
-    })()
+    })().catch((err) => {
+      classifierPromise = null
+      classifierReady = false
+      throw err
+    })
   }
   return classifierPromise
 }
 
-/** Warm-start the model in the background (first shutter is faster). */
+export function isHairMlReady(): boolean {
+  return classifierReady
+}
+
+/**
+ * Soft background warm-up. Must never be awaited from the capture path —
+ * first download is hundreds of MB and can take minutes on mobile.
+ */
 export function preloadHairMl(): void {
   void getClassifier().catch(() => {
-    classifierPromise = null
+    /* ignore — heuristic hair path remains available */
   })
 }
 
@@ -104,7 +120,6 @@ export function refineHairFamily(
     return { family: 'gray', bald: false, source: 'ml' }
   }
   if (mlLabel === 'blond hair') {
-    // Mid L* blond predictions are often light brown in real selfies
     if (lab.L < 52 && chroma < 30) {
       return { family: 'light_brown', bald: false, source: 'ml+heuristic' }
     }
@@ -129,8 +144,56 @@ function temperatureFromLab(lab: LabColor): HairTemperature {
   return 'neutral'
 }
 
+async function runClassify(
+  imageDataUrl: string,
+  lab: LabColor,
+  rgb: [number, number, number],
+  hairPixelCount: number,
+  expectedHairPixels: number,
+): Promise<HairMlPrediction | null> {
+  const classifier = await getClassifier()
+  const raw = await classifier(imageDataUrl, { topk: 5 })
+  const scores: Partial<Record<HairMlLabel, number>> = {}
+  let topLabel: HairMlLabel | null = null
+  let topScore = 0
+
+  for (const row of raw) {
+    const label = normalizeLabel(row.label)
+    if (!label) continue
+    scores[label] = Math.max(scores[label] ?? 0, row.score)
+    if (row.score > topScore) {
+      topScore = row.score
+      topLabel = label
+    }
+  }
+
+  const refined = refineHairFamily(
+    topLabel,
+    topScore,
+    lab,
+    hairPixelCount,
+    expectedHairPixels,
+  )
+
+  if (refined.family === 'unknown' && !refined.bald) {
+    return null
+  }
+
+  return {
+    family: refined.family,
+    temperature: refined.bald ? 'neutral' : temperatureFromLab(lab),
+    hex: refined.bald ? '#c4a484' : rgbToHex(rgb[0], rgb[1], rgb[2]),
+    bald: refined.bald,
+    confidence: topScore,
+    source: refined.source,
+    rawLabel: topLabel ?? undefined,
+    scores,
+  }
+}
+
 /**
- * Run hair-color ViT on a face/hair crop (data URL or canvas export).
+ * Optional hair ML. Never waits on the first-time model download —
+ * returns null immediately so Lab/bald heuristics can finish the analysis.
  */
 export async function classifyHairMl(
   imageDataUrl: string,
@@ -139,48 +202,29 @@ export async function classifyHairMl(
   hairPixelCount: number,
   expectedHairPixels: number,
 ): Promise<HairMlPrediction | null> {
+  // Kick off download in the background, but do not await it here.
+  if (!classifierReady) {
+    preloadHairMl()
+    return null
+  }
+
   try {
-    const classifier = await getClassifier()
-    const raw = await classifier(imageDataUrl, { topk: 5 })
-    const scores: Partial<Record<HairMlLabel, number>> = {}
-    let topLabel: HairMlLabel | null = null
-    let topScore = 0
-
-    for (const row of raw) {
-      const label = normalizeLabel(row.label)
-      if (!label) continue
-      scores[label] = Math.max(scores[label] ?? 0, row.score)
-      if (row.score > topScore) {
-        topScore = row.score
-        topLabel = label
-      }
-    }
-
-    const refined = refineHairFamily(
-      topLabel,
-      topScore,
-      lab,
-      hairPixelCount,
-      expectedHairPixels,
-    )
-
-    // If ML path collapsed to unknown, signal caller to use Lab heuristic
-    if (refined.family === 'unknown' && !refined.bald) {
-      return null
-    }
-
-    return {
-      family: refined.family,
-      temperature: refined.bald ? 'neutral' : temperatureFromLab(lab),
-      hex: refined.bald ? '#c4a484' : rgbToHex(rgb[0], rgb[1], rgb[2]),
-      bald: refined.bald,
-      confidence: topScore,
-      source: refined.source,
-      rawLabel: topLabel ?? undefined,
-      scores,
-    }
+    const result = await Promise.race([
+      runClassify(
+        imageDataUrl,
+        lab,
+        rgb,
+        hairPixelCount,
+        expectedHairPixels,
+      ),
+      new Promise<null>((resolve) => {
+        window.setTimeout(() => resolve(null), HAIR_ML_INFER_BUDGET_MS)
+      }),
+    ])
+    return result
   } catch {
     classifierPromise = null
+    classifierReady = false
     return null
   }
 }

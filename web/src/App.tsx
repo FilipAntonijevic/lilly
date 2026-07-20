@@ -6,7 +6,6 @@ import { loadActiveCatalog } from './data/catalog'
 import { useLanguage } from './i18n/LanguageContext'
 import { analyzeCapturedImage } from './lib/analyzeFace'
 import { uploadCaptureBundle } from './lib/calibrationUpload'
-import { preloadHairMl } from './lib/hairMl'
 import { buildFaceRoutine } from './lib/faceRoutine'
 import type {
   AppPhase,
@@ -65,7 +64,6 @@ export default function App() {
 
   useEffect(() => {
     void loadActiveCatalog().then(setCatalog)
-    preloadHairMl()
   }, [])
 
   function resetToLanding() {
@@ -126,15 +124,25 @@ export default function App() {
     const capturedAt = Date.now()
 
     setPhase('analyzing')
-    setAnalyzingLabel(t('analyze.detectFace'))
+    setAnalyzingLabel(t('analyze.measure'))
     setPhotoUrl(mainDataUrl)
 
     void (async () => {
       try {
-        setAnalyzingLabel(t('analyze.measure'))
         const skin = await analyzeCapturedImage(canvas)
         if (analysisId !== analysisIdRef.current) return
 
+        setAnalyzingLabel(t('analyze.pickProducts'))
+        const active = catalog ?? (await loadActiveCatalog())
+        if (!catalog) setCatalog(active)
+
+        const zones = buildFaceRoutine(active.products, skin)
+        setProfile(skin)
+        setRoutine(zones)
+        setPhase('results')
+        writeHistory('results', 'replace')
+
+        // Upload after results so it never delays the UI.
         uploadCaptureBundle({
           mainDataUrl,
           calibrationFrames: bundle.calibrationFrames,
@@ -148,16 +156,6 @@ export default function App() {
             hair: skin.hair,
           },
         })
-
-        setAnalyzingLabel(t('analyze.pickProducts'))
-        const active = catalog ?? (await loadActiveCatalog())
-        if (!catalog) setCatalog(active)
-
-        const zones = buildFaceRoutine(active.products, skin)
-        setProfile(skin)
-        setRoutine(zones)
-        setPhase('results')
-        writeHistory('results', 'replace')
       } catch {
         if (analysisId !== analysisIdRef.current) return
         uploadCaptureBundle({

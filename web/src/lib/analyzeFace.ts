@@ -609,11 +609,21 @@ function analyzeHeuristic(
   )
 }
 
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
+  return Promise.race([
+    promise.then((value) => value as T | null),
+    new Promise<null>((resolve) => {
+      window.setTimeout(() => resolve(null), ms)
+    }),
+  ])
+}
+
 /**
  * Analyze a captured selfie with MediaPipe Face Landmarker when possible.
  * Samples makeup-relevant regions: cheeks, forehead, jaw, under-eye, hairline.
  * Lighting is normalized first so shade/sun selfies are closer.
- * Hair color uses ViT ML (incl. bald); Fitzpatrick from ITA (Fitzpatrick17k thresholds).
+ * Hair ML is optional and never blocks on model download (heuristic is default).
+ * Fitzpatrick from ITA (Fitzpatrick17k thresholds).
  */
 export async function analyzeCapturedImage(
   canvas: HTMLCanvasElement,
@@ -626,9 +636,10 @@ export async function analyzeCapturedImage(
   const { width, height } = canvas
   const { data: raw } = ctx.getImageData(0, 0, width, height)
 
+  // Face Landmarker first load can be slow on mobile — don't hang forever.
   let landmarks: Landmark[] | null = null
   try {
-    landmarks = await detectFaceLandmarks(canvas)
+    landmarks = await withTimeout(detectFaceLandmarks(canvas), 6000)
   } catch {
     landmarks = null
   }
@@ -646,10 +657,11 @@ export async function analyzeCapturedImage(
     profile = analyzeHeuristic(data, width, height, lighting)
   }
 
+  // Hair ML only if already warm; otherwise keep fast Lab/bald heuristic.
   const hairRegion = profile.regions.find((r) => r.id === 'hair')
   const crop = cropFaceForMl(canvas, landmarks)
   const ml = await classifyHairMl(
-    crop.toDataURL('image/jpeg', 0.9),
+    crop.toDataURL('image/jpeg', 0.85),
     hairRegion?.lab ?? profile.lab,
     hairRegion
       ? [
