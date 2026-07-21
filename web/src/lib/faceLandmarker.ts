@@ -64,12 +64,14 @@ export type MakeupRegionKey = keyof typeof MAKEUP_REGIONS
 
 /**
  * Ordered landmark rings that define editable try-on polygons.
- * Kept short so users can drag control points comfortably.
+ * Eyes: brow → upper lid (opening is cut out at render time).
+ * Lips: outer lip ring (inner mouth cut out at render time).
  */
 export const TRYON_POLYGON_INDICES = {
-  leftEye: [226, 23, 27, 55, 133, 153, 145, 33],
-  rightEye: [446, 253, 257, 285, 362, 380, 374, 263],
-  lips: [61, 40, 37, 0, 267, 270, 291, 321, 314, 17, 84, 91],
+  /** Brow + upper lid — eyeshadow on skin above the opening */
+  leftEye: [70, 63, 105, 66, 107, 133, 157, 159, 161, 33],
+  rightEye: [300, 293, 334, 296, 336, 362, 384, 386, 388, 263],
+  lips: [61, 185, 40, 39, 37, 0, 267, 269, 270, 409, 291, 375, 321, 405, 314, 17, 84, 181, 91, 146],
   leftCheek: [50, 101, 118, 187, 205, 36],
   rightCheek: [280, 330, 347, 411, 425, 266],
   underEyeLeft: [111, 117, 119, 100, 47, 114],

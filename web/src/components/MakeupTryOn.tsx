@@ -10,9 +10,6 @@ import { useLanguage } from '../i18n/LanguageContext'
 import { isMessageKey } from '../i18n/messages'
 import type { TryOnPolygonId } from '../lib/faceLandmarker'
 import {
-  TRYON_BASE_ALPHA,
-  TRYON_BLEND,
-  TRYON_DRAW_ORDER,
   TRYON_ZONE_ORDER,
   buildTryOnPolygons,
   clonePolygons,
@@ -20,6 +17,7 @@ import {
   type EditableTryOnPolygon,
   type Point2D,
 } from '../lib/tryOnRegions'
+import { paintSoftMakeup } from '../lib/tryOnRender'
 import type {
   FaceLandmarkPoint,
   FaceZoneId,
@@ -147,41 +145,20 @@ export function MakeupTryOn({
     ctx.clearRect(0, 0, width, height)
     ctx.drawImage(img, 0, 0, width, height)
 
-    const layer = document.createElement('canvas')
-    layer.width = width
-    layer.height = height
-    const lctx = layer.getContext('2d')
-    if (!lctx) return
-
-    const byId = new Map(polygons.map((p) => [p.id, p]))
-    for (const id of TRYON_DRAW_ORDER) {
-      const poly = byId.get(id)
-      if (!poly || poly.points.length < 3) continue
-      const zoneLayer = layers[poly.zoneId]
-      if (!zoneLayer?.product || zoneLayer.intensity <= 0.01) continue
-
-      const alpha = TRYON_BASE_ALPHA[poly.zoneId] * zoneLayer.intensity
-      if (alpha <= 0.01) continue
-
-      const hex = zoneLayer.product.shadeHex
-      lctx.save()
-      lctx.globalCompositeOperation = TRYON_BLEND[poly.zoneId]
-      lctx.globalAlpha = alpha
-      lctx.fillStyle = hex
-      lctx.shadowColor = hex
-      lctx.shadowBlur = Math.max(8, Math.min(width, height) * 0.018)
-      pathPolygon(lctx, poly.points, width, height)
-      lctx.fill()
-      lctx.restore()
-    }
-
-    ctx.drawImage(layer, 0, 0)
+    paintSoftMakeup({
+      ctx,
+      width,
+      height,
+      polygons,
+      layers,
+      landmarks,
+    })
 
     for (const poly of activePolygons) {
       ctx.save()
-      ctx.strokeStyle = 'rgba(255, 248, 243, 0.95)'
-      ctx.lineWidth = 2.5
-      ctx.setLineDash([])
+      ctx.strokeStyle = 'rgba(255, 248, 243, 0.9)'
+      ctx.lineWidth = 2
+      ctx.setLineDash([5, 4])
       pathPolygon(ctx, poly.points, width, height)
       ctx.stroke()
       ctx.restore()
@@ -199,7 +176,7 @@ export function MakeupTryOn({
         ctx.fill()
       }
     }
-  }, [imageReady, polygons, layers, activePolygons])
+  }, [imageReady, polygons, layers, activePolygons, landmarks])
 
   function clientToNorm(clientX: number, clientY: number): Point2D | null {
     const canvas = canvasRef.current
