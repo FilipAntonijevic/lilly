@@ -522,8 +522,8 @@
   margin: 0;
   border-bottom: 0;
   background: rgba(201, 90, 78, 0.92);
-  /* ~5% taller than previous 7.25rem so title + chips fully fit */
-  min-height: 7.65rem;
+  height: 6.85rem;
+  min-height: 6.85rem;
 }
 
 .tryon-cart-item:last-child {
@@ -558,10 +558,10 @@
   position: relative;
   z-index: 1;
   display: grid;
-  align-content: start;
-  min-height: 7.65rem;
-  height: auto;
-  padding: 0.9rem 0.8rem;
+  align-content: stretch;
+  height: 100%;
+  min-height: 6.85rem;
+  padding: 0.7rem 0.75rem;
   background: var(--foam);
   border: 1px solid var(--line);
   border-radius: 0.85rem;
@@ -578,59 +578,71 @@
 
 .tryon-cart-item-main {
   display: grid;
-  grid-template-columns: 3.35rem minmax(0, 1fr);
-  gap: 0.75rem;
-  align-items: start;
+  grid-template-columns: 5.1rem minmax(0, 1fr);
+  gap: 0.8rem;
+  align-items: stretch;
   min-width: 0;
+  height: 100%;
 }
 
 .tryon-cart-thumb {
-  width: 3.35rem;
-  height: 3.35rem;
+  width: 5.1rem;
+  height: 5.1rem;
+  align-self: center;
   object-fit: cover;
-  border-radius: 0.55rem;
+  border-radius: 0.6rem;
   background: rgba(26, 22, 20, 0.06);
   pointer-events: none;
 }
 
 .tryon-cart-item .tryon-picker-swatch {
-  width: 3.35rem;
-  height: 3.35rem;
-  border-radius: 0.55rem;
+  width: 5.1rem;
+  height: 5.1rem;
+  align-self: center;
+  border-radius: 0.6rem;
   flex-shrink: 0;
 }
 
 .tryon-cart-item .tryon-picker-meta {
-  display: grid;
-  gap: 0.28rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
   min-width: 0;
-  align-content: start;
+  min-height: 0;
+  height: 100%;
 }
 
 .tryon-cart-item .tryon-picker-brand {
+  flex: 0 0 auto;
   font-size: 0.68rem;
   line-height: 1.2;
 }
 
-.tryon-cart-item .tryon-picker-name {
-  font-size: 0.86rem;
-  font-weight: 600;
-  line-height: 1.28;
+.tryon-cart-item .tryon-picker-name,
+.tryon-cart-item .tryon-cart-name {
+  flex: 0 0 auto;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
   word-break: break-word;
+  font-size: 0.86rem;
+  font-weight: 600;
+  line-height: 1.25;
+  /* Fixed 2-line box so footer stays pinned regardless of title length. */
+  height: calc(0.86rem * 1.25 * 2);
+  max-height: calc(0.86rem * 1.25 * 2);
 }
 
 .tryon-cart-item-footer {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   justify-content: space-between;
   gap: 0.4rem 0.55rem;
-  margin-top: 0.1rem;
+  margin-top: auto;
   min-width: 0;
+  flex: 0 0 auto;
 }
 
 .tryon-cart-item .tryon-picker-price {
