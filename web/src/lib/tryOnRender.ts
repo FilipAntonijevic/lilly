@@ -253,8 +253,9 @@ function paintLips(
         )
   if (outer.length < 3) return
 
-  // Lower lip already +5% in outline; tiny normal expand for AA only.
-  const widened = expandRing(outer, 0.0015)
+  // Upper lip stays on landmarks; lower lip outline is already +5%.
+  // Do not expandRing the whole mouth — that would nudge the cupid’s bow.
+  const widened = outer
   const mask = createCanvas(width, height)
   const mctx = mask.getContext('2d')
   if (!mctx) return

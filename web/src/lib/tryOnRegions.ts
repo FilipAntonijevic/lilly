@@ -206,30 +206,57 @@ export function expandPolygonFromCentroid(
 }
 
 /**
- * Keep upper lip on MediaPipe outline; scale only the lower lip outward
- * so lipstick overlaps skin below without lifting the cupid’s bow.
+ * Keep upper lip on MediaPipe outline; grow only the lower vermilion by `scale`
+ * (default +5%) from the lower-lip centroid so coverage overlaps skin below.
  */
 export function expandLowerLipOutline(
   points: Point2D[],
   scale: number = LIPS_OUTLINE_SCALE,
 ): Point2D[] {
   if (points.length < 3 || !(scale > 0)) return points.map((p) => ({ ...p }))
-  let sx = 0
-  let sy = 0
-  for (const p of points) {
-    sx += p.x
-    sy += p.y
-  }
-  const cx = sx / points.length
-  const cy = sy / points.length
 
-  const useRingSplit = points.length >= LIPS_UPPER_POINT_COUNT + 3
+  // Full outer ring is upper(11) then lower(9): [61…291, 375…146].
+  const split =
+    points.length >= LIPS_UPPER_POINT_COUNT + 3
+      ? LIPS_UPPER_POINT_COUNT
+      : -1
+
+  let minY = Infinity
+  let maxY = -Infinity
+  for (const p of points) {
+    minY = Math.min(minY, p.y)
+    maxY = Math.max(maxY, p.y)
+  }
+  const lipH = Math.max(1e-4, maxY - minY)
+  const midY = (minY + maxY) / 2
+
+  const lowerIdx: number[] = []
+  for (let i = 0; i < points.length; i++) {
+    const isLower =
+      split >= 0 ? i >= split : points[i]!.y >= midY - lipH * 0.02
+    if (isLower) lowerIdx.push(i)
+  }
+  if (lowerIdx.length < 2) return points.map((p) => ({ ...p }))
+
+  let lcx = 0
+  let lcy = 0
+  for (const i of lowerIdx) {
+    lcx += points[i]!.x
+    lcy += points[i]!.y
+  }
+  lcx /= lowerIdx.length
+  lcy /= lowerIdx.length
+
+  // +5% from lower centroid, plus a clear downward nudge (5% of lip height)
+  // so the bottom edge visibly grows without moving the cupid’s bow.
+  const downNudge = lipH * (scale - 1)
+
+  const lowerSet = new Set(lowerIdx)
   return points.map((p, i) => {
-    const isLower = useRingSplit ? i >= LIPS_UPPER_POINT_COUNT : p.y >= cy
-    if (!isLower) return { x: p.x, y: p.y }
+    if (!lowerSet.has(i)) return { x: p.x, y: p.y }
     return {
-      x: clamp01(cx + (p.x - cx) * scale),
-      y: clamp01(cy + (p.y - cy) * scale),
+      x: clamp01(lcx + (p.x - lcx) * scale),
+      y: clamp01(lcy + (p.y - lcy) * scale + downNudge),
     }
   })
 }
