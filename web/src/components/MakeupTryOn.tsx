@@ -159,8 +159,19 @@ export function MakeupTryOn({
       ctx.strokeStyle = 'rgba(255, 248, 243, 0.9)'
       ctx.lineWidth = 2
       ctx.setLineDash([5, 4])
-      pathPolygon(ctx, poly.points, width, height)
-      ctx.stroke()
+      if (poly.kind === 'circle' && poly.points.length >= 2) {
+        const [c, rim] = poly.points
+        const cx = c.x * width
+        const cy = c.y * height
+        const r =
+          Math.hypot(rim.x - c.x, rim.y - c.y) * Math.min(width, height)
+        ctx.beginPath()
+        ctx.arc(cx, cy, Math.max(4, r), 0, Math.PI * 2)
+        ctx.stroke()
+      } else {
+        pathPolygon(ctx, poly.points, width, height)
+        ctx.stroke()
+      }
       ctx.restore()
 
       for (const point of poly.points) {
@@ -231,7 +242,17 @@ export function MakeupTryOn({
       const next = clonePolygons(prev)
       const poly = next.find((p) => p.id === drag.regionId)
       if (!poly || !poly.points[drag.pointIndex]) return prev
-      poly.points[drag.pointIndex] = norm
+      if (poly.kind === 'circle' && drag.pointIndex === 0 && poly.points[1]) {
+        const dx = norm.x - poly.points[0].x
+        const dy = norm.y - poly.points[0].y
+        poly.points[0] = norm
+        poly.points[1] = {
+          x: clamp01(poly.points[1].x + dx),
+          y: clamp01(poly.points[1].y + dy),
+        }
+      } else {
+        poly.points[drag.pointIndex] = norm
+      }
       return next
     })
   }

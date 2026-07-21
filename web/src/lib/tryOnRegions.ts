@@ -14,10 +14,14 @@ export interface Point2D {
   y: number
 }
 
+export type TryOnShapeKind = 'polygon' | 'circle'
+
 export interface EditableTryOnPolygon {
   id: TryOnPolygonId
   zoneId: FaceZoneId
   labelKey: MessageKey
+  kind: TryOnShapeKind
+  /** polygon: ring points; circle: [center, rim] */
   points: Point2D[]
 }
 
@@ -47,19 +51,25 @@ export const TRYON_LABEL_BY_POLYGON: Record<TryOnPolygonId, MessageKey> = {
   faceOval: 'tryon.region.faceOval',
 }
 
-/** Draw order: base first, color accents last. */
-export const TRYON_DRAW_ORDER: TryOnPolygonId[] = [
-  'faceOval',
-  'jawLeft',
-  'jawRight',
-  'underEyeLeft',
-  'underEyeRight',
+/** Regions edited/rendered as soft circles (center + rim handle). */
+export const CIRCLE_REGIONS: ReadonlySet<TryOnPolygonId> = new Set([
   'leftCheek',
   'rightCheek',
-  'leftEye',
-  'rightEye',
-  'lips',
-]
+  'underEyeLeft',
+  'underEyeRight',
+  'jawLeft',
+  'jawRight',
+])
+
+/** Cheek / under-eye / jaw brush centers in the mesh. */
+const CIRCLE_CENTER_INDEX: Partial<Record<TryOnPolygonId, number>> = {
+  leftCheek: 205,
+  rightCheek: 425,
+  underEyeLeft: 111,
+  underEyeRight: 340,
+  jawLeft: 172,
+  jawRight: 397,
+}
 
 export const TRYON_BLEND: Record<FaceZoneId, GlobalCompositeOperation> = {
   faceBase: 'soft-light',
@@ -67,47 +77,17 @@ export const TRYON_BLEND: Record<FaceZoneId, GlobalCompositeOperation> = {
   cheeks: 'soft-light',
   contour: 'multiply',
   lips: 'source-over',
-  eyes: 'multiply',
+  eyes: 'soft-light',
 }
 
 /** Base opacity at full intensity (1.0). */
 export const TRYON_BASE_ALPHA: Record<FaceZoneId, number> = {
-  faceBase: 0.38,
-  underEye: 0.42,
-  cheeks: 0.48,
-  contour: 0.32,
-  lips: 0.58,
-  eyes: 0.42,
-}
-
-export function buildTryOnPolygons(
-  landmarks: FaceLandmarkPoint[],
-): EditableTryOnPolygon[] {
-  return (Object.keys(TRYON_POLYGON_INDICES) as TryOnPolygonId[]).map((id) => {
-    const indices = TRYON_POLYGON_INDICES[id]
-    const points: Point2D[] = []
-    for (const index of indices) {
-      const lm = landmarks[index]
-      if (!lm) continue
-      points.push({
-        x: clamp01(lm.x),
-        y: clamp01(lm.y),
-      })
-    }
-    return {
-      id,
-      zoneId: TRYON_ZONE_BY_POLYGON[id],
-      labelKey: TRYON_LABEL_BY_POLYGON[id],
-      points,
-    }
-  }).filter((poly) => poly.points.length >= 3)
-}
-
-export function shadeForZone(
-  routine: FaceZoneMatch[],
-  zoneId: FaceZoneId,
-): string | null {
-  return routine.find((z) => z.zoneId === zoneId)?.match?.product.shadeHex ?? null
+  faceBase: 0.42,
+  underEye: 0.5,
+  cheeks: 0.62,
+  contour: 0.4,
+  lips: 0.72,
+  eyes: 0.7,
 }
 
 export const TRYON_ZONE_ORDER: FaceZoneId[] = [
@@ -118,6 +98,54 @@ export const TRYON_ZONE_ORDER: FaceZoneId[] = [
   'lips',
   'eyes',
 ]
+
+export function buildTryOnPolygons(
+  landmarks: FaceLandmarkPoint[],
+): EditableTryOnPolygon[] {
+  const faceScale = estimateFaceScale(landmarks)
+  const out: EditableTryOnPolygon[] = []
+
+  for (const id of Object.keys(TRYON_POLYGON_INDICES) as TryOnPolygonId[]) {
+    if (CIRCLE_REGIONS.has(id)) {
+      const centerIdx = CIRCLE_CENTER_INDEX[id]
+      const centerLm = centerIdx != null ? landmarks[centerIdx] : null
+      if (!centerLm) continue
+      const radius =
+        id.startsWith('underEye')
+          ? faceScale * 0.055
+          : id.startsWith('jaw')
+            ? faceScale * 0.07
+            : faceScale * 0.09
+      const center = { x: clamp01(centerLm.x), y: clamp01(centerLm.y) }
+      out.push({
+        id,
+        zoneId: TRYON_ZONE_BY_POLYGON[id],
+        labelKey: TRYON_LABEL_BY_POLYGON[id],
+        kind: 'circle',
+        points: [center, { x: clamp01(center.x + radius), y: center.y }],
+      })
+      continue
+    }
+
+    const indices = TRYON_POLYGON_INDICES[id]
+    const points: Point2D[] = []
+    for (const index of indices) {
+      const lm = landmarks[index]
+      if (!lm) continue
+      points.push({ x: clamp01(lm.x), y: clamp01(lm.y) })
+    }
+    if (points.length < 3) continue
+    out.push({
+      id,
+      zoneId: TRYON_ZONE_BY_POLYGON[id],
+      labelKey: TRYON_LABEL_BY_POLYGON[id],
+      kind: 'polygon',
+      points,
+    })
+  }
+
+  return out
+}
 
 export function polygonsForZone(
   polygons: EditableTryOnPolygon[],
@@ -133,6 +161,22 @@ export function clonePolygons(
     ...poly,
     points: poly.points.map((p) => ({ ...p })),
   }))
+}
+
+export function shadeForZone(
+  routine: FaceZoneMatch[],
+  zoneId: FaceZoneId,
+): string | null {
+  return routine.find((z) => z.zoneId === zoneId)?.match?.product.shadeHex ?? null
+}
+
+function estimateFaceScale(landmarks: FaceLandmarkPoint[]): number {
+  const a = landmarks[33]
+  const b = landmarks[263]
+  if (a && b) {
+    return Math.max(0.08, Math.hypot(a.x - b.x, a.y - b.y))
+  }
+  return 0.12
 }
 
 function clamp01(n: number): number {

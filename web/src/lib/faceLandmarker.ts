@@ -63,21 +63,23 @@ export const MAKEUP_REGIONS = {
 export type MakeupRegionKey = keyof typeof MAKEUP_REGIONS
 
 /**
- * Ordered landmark rings that define editable try-on polygons.
- * Eyes: brow → upper lid (opening is cut out at render time).
- * Lips: outer lip ring (inner mouth cut out at render time).
+ * Editable rings (polygons). Soft circular brushes (cheeks, etc.) are built
+ * in tryOnRegions from single mesh anchors — not listed here.
+ * Eyes: lid outline for handles; paint uses lid/crease/outer layers in tryOnRender.
  */
 export const TRYON_POLYGON_INDICES = {
-  /** Brow + upper lid — eyeshadow on skin above the opening */
-  leftEye: [70, 63, 105, 66, 107, 133, 157, 159, 161, 33],
-  rightEye: [300, 293, 334, 296, 336, 362, 384, 386, 388, 263],
-  lips: [61, 185, 40, 39, 37, 0, 267, 269, 270, 409, 291, 375, 321, 405, 314, 17, 84, 181, 91, 146],
-  leftCheek: [50, 101, 118, 187, 205, 36],
-  rightCheek: [280, 330, 347, 411, 425, 266],
-  underEyeLeft: [111, 117, 119, 100, 47, 114],
-  underEyeRight: [340, 346, 348, 329, 277, 343],
-  jawLeft: [58, 172, 136, 150, 149, 176],
-  jawRight: [288, 397, 365, 379, 378, 400],
+  leftEye: [247, 30, 29, 27, 28, 56, 190, 173, 157, 158, 159, 160, 161, 246],
+  rightEye: [467, 260, 259, 257, 258, 286, 414, 398, 384, 385, 386, 387, 388, 466],
+  lips: [
+    61, 185, 40, 39, 37, 0, 267, 269, 270, 409, 291, 375, 321, 405, 314, 17, 84,
+    181, 91, 146,
+  ],
+  leftCheek: [205],
+  rightCheek: [425],
+  underEyeLeft: [111],
+  underEyeRight: [340],
+  jawLeft: [172],
+  jawRight: [397],
   faceOval: [10, 297, 332, 454, 361, 397, 152, 172, 58, 234, 127, 54, 103],
 } as const
 
