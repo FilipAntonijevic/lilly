@@ -1,4 +1,5 @@
 import {
+  startTransition,
   useEffect,
   useMemo,
   useRef,
@@ -42,6 +43,12 @@ interface ZoneLayerState {
 }
 
 const DEFAULT_INTENSITY = 0.5
+/** Slider / paint updates snap to 5% so drag stays responsive. */
+const INTENSITY_STEP = 0.05
+
+function quantizeIntensity(n: number): number {
+  return clamp01(Math.round(n / INTENSITY_STEP) * INTENSITY_STEP)
+}
 
 function initialZoneLayers(routine: FaceZoneMatch[]): Record<FaceZoneId, ZoneLayerState> {
   const layers = {} as Record<FaceZoneId, ZoneLayerState>
@@ -80,11 +87,19 @@ export function MakeupTryOn({
   const { t } = useLanguage()
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const imageRef = useRef<HTMLImageElement | null>(null)
+  const paintRafRef = useRef(0)
+  const layersRef = useRef<Record<FaceZoneId, ZoneLayerState>>(
+    initialZoneLayers(routine),
+  )
+  const intensityDragRef = useRef<{ zone: FaceZoneId; value: number } | null>(
+    null,
+  )
   const [imageReady, setImageReady] = useState(false)
   const [activeZone, setActiveZone] = useState<FaceZoneId>('faceBase')
   const [layers, setLayers] = useState<Record<FaceZoneId, ZoneLayerState>>(() =>
     initialZoneLayers(routine),
   )
+  layersRef.current = layers
   const [cart, setCart] = useState<MakeupProduct[]>(() =>
     initialCartFromRoutine(routine),
   )
@@ -92,8 +107,16 @@ export function MakeupTryOn({
   const [cartOpen, setCartOpen] = useState(false)
   /** Master switch: hide all applied makeup without wiping intensities. */
   const [filtersOn, setFiltersOn] = useState(true)
+  /** Live slider label while dragging (avoids full layer state updates). */
+  const [dragIntensityPct, setDragIntensityPct] = useState<number | null>(null)
 
   const polygons = useMemo(() => buildTryOnPolygons(landmarks), [landmarks])
+  const polygonsRef = useRef(polygons)
+  polygonsRef.current = polygons
+  const landmarksRef = useRef(landmarks)
+  landmarksRef.current = landmarks
+  const filtersOnRef = useRef(filtersOn)
+  filtersOnRef.current = filtersOn
 
   const zoneTabs = useMemo(() => {
     return TRYON_ZONE_ORDER.map((zoneId) => {
@@ -108,6 +131,57 @@ export function MakeupTryOn({
   }, [routine, t])
 
   const activeLayer = layers[activeZone]
+
+  function schedulePaint() {
+    if (paintRafRef.current) return
+    paintRafRef.current = requestAnimationFrame(() => {
+      paintRafRef.current = 0
+      const canvas = canvasRef.current
+      const img = imageRef.current
+      if (!canvas || !img) return
+
+      const width = img.naturalWidth || img.width
+      const height = img.naturalHeight || img.height
+      if (!width || !height) return
+
+      if (canvas.width !== width || canvas.height !== height) {
+        canvas.width = width
+        canvas.height = height
+      }
+
+      const ctx = canvas.getContext('2d')
+      if (!ctx) return
+
+      ctx.clearRect(0, 0, width, height)
+      ctx.drawImage(img, 0, 0, width, height)
+
+      const current = layersRef.current
+      const drag = intensityDragRef.current
+      const on = filtersOnRef.current
+      const paintLayers = {} as Record<
+        FaceZoneId,
+        { intensity: number; product: MakeupProduct | null }
+      >
+      for (const zoneId of TRYON_ZONE_ORDER) {
+        const layer = current[zoneId]
+        let intensity = layer?.intensity ?? 0
+        if (drag && drag.zone === zoneId) intensity = drag.value
+        paintLayers[zoneId] = {
+          intensity: on ? intensity : 0,
+          product: layer?.product ?? null,
+        }
+      }
+
+      paintSoftMakeup({
+        ctx,
+        width,
+        height,
+        polygons: polygonsRef.current,
+        layers: paintLayers,
+        landmarks: landmarksRef.current,
+      })
+    })
+  }
 
   useEffect(() => {
     setLayers(initialZoneLayers(routine))
@@ -134,63 +208,50 @@ export function MakeupTryOn({
 
   useEffect(() => {
     if (!imageReady) return
-    const canvas = canvasRef.current
-    const img = imageRef.current
-    if (!canvas || !img) return
-
-    const width = img.naturalWidth || img.width
-    const height = img.naturalHeight || img.height
-    if (!width || !height) return
-
-    if (canvas.width !== width || canvas.height !== height) {
-      canvas.width = width
-      canvas.height = height
-    }
-
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
-
-    ctx.clearRect(0, 0, width, height)
-    ctx.drawImage(img, 0, 0, width, height)
-
-    const paintLayers = {} as Record<
-      FaceZoneId,
-      { intensity: number; product: MakeupProduct | null }
-    >
-    for (const zoneId of TRYON_ZONE_ORDER) {
-      const layer = layers[zoneId]
-      paintLayers[zoneId] = {
-        intensity: filtersOn ? (layer?.intensity ?? 0) : 0,
-        product: layer?.product ?? null,
+    schedulePaint()
+    return () => {
+      if (paintRafRef.current) {
+        cancelAnimationFrame(paintRafRef.current)
+        paintRafRef.current = 0
       }
     }
-
-    paintSoftMakeup({
-      ctx,
-      width,
-      height,
-      polygons,
-      layers: paintLayers,
-      landmarks,
-    })
   }, [imageReady, polygons, layers, landmarks, filtersOn])
 
   function updateActiveLayer(patch: Partial<ZoneLayerState>) {
-    setLayers((prev) => ({
-      ...prev,
-      [activeZone]: { ...prev[activeZone], ...patch },
-    }))
+    const nextPatch =
+      typeof patch.intensity === 'number'
+        ? { ...patch, intensity: quantizeIntensity(patch.intensity) }
+        : patch
+    startTransition(() => {
+      setLayers((prev) => ({
+        ...prev,
+        [activeZone]: { ...prev[activeZone], ...nextPatch },
+      }))
+    })
+  }
+
+  function onIntensityLive(intensity: number) {
+    const next = quantizeIntensity(intensity)
+    intensityDragRef.current = { zone: activeZone, value: next }
+    setDragIntensityPct(Math.round(next * 100))
+    schedulePaint()
+  }
+
+  function onIntensityCommit(intensity: number) {
+    const next = quantizeIntensity(intensity)
+    intensityDragRef.current = null
+    setDragIntensityPct(null)
+    updateActiveLayer({ intensity: next })
   }
 
   function onIntensityWheel(e: ReactWheelEvent<HTMLDivElement>) {
     e.preventDefault()
-    const delta = e.deltaY > 0 ? -0.03 : 0.03
-    updateActiveLayer({
-      intensity: clamp01(activeLayer.intensity + delta),
-    })
+    const delta = e.deltaY > 0 ? -INTENSITY_STEP : INTENSITY_STEP
+    onIntensityCommit(activeLayer.intensity + delta)
   }
 
-  const layersPct = Math.round(activeLayer.intensity * 100)
+  const layersPct =
+    dragIntensityPct ?? Math.round(quantizeIntensity(activeLayer.intensity) * 100)
   const recommended = routine.find((z) => z.zoneId === activeZone)?.match?.product
   const activeCategory =
     routine.find((z) => z.zoneId === activeZone)?.category ?? 'lipstick'
@@ -328,7 +389,8 @@ export function MakeupTryOn({
                 value={activeLayer.intensity}
                 disabled={!activeLayer.product}
                 ariaLabel={t('tryon.intensity')}
-                onChange={(intensity) => updateActiveLayer({ intensity })}
+                onLiveChange={onIntensityLive}
+                onCommit={onIntensityCommit}
               />
             </div>
           )}
@@ -389,29 +451,48 @@ function IntensitySlider({
   value,
   disabled,
   ariaLabel,
-  onChange,
+  onLiveChange,
+  onCommit,
 }: {
   value: number
   disabled?: boolean
   ariaLabel: string
-  onChange: (next: number) => void
+  /** Fired while dragging — keep this cheap (no heavy React state). */
+  onLiveChange: (next: number) => void
+  /** Fired on pointer-up / keyboard — commit into app state. */
+  onCommit: (next: number) => void
 }) {
   const trackRef = useRef<HTMLDivElement>(null)
   const draggingRef = useRef(false)
-  const pct = Math.round(clamp01(value) * 100)
+  const lastSentRef = useRef(quantizeIntensity(value))
+  const localRef = useRef(quantizeIntensity(value))
+  const [localValue, setLocalValue] = useState(() => quantizeIntensity(value))
+  const pct = Math.round(localValue * 100)
+
+  useEffect(() => {
+    if (draggingRef.current) return
+    const q = quantizeIntensity(value)
+    localRef.current = q
+    lastSentRef.current = q
+    setLocalValue(q)
+  }, [value])
 
   function valueFromClientX(clientX: number): number | null {
     const track = trackRef.current
     if (!track) return null
     const rect = track.getBoundingClientRect()
     if (rect.width <= 0) return null
-    return clamp01((clientX - rect.left) / rect.width)
+    return quantizeIntensity((clientX - rect.left) / rect.width)
   }
 
   function applyClientX(clientX: number) {
     const next = valueFromClientX(clientX)
     if (next == null) return
-    onChange(next)
+    localRef.current = next
+    setLocalValue(next)
+    if (Math.abs(next - lastSentRef.current) < 1e-6) return
+    lastSentRef.current = next
+    onLiveChange(next)
   }
 
   function onPointerDown(event: ReactPointerEvent<HTMLDivElement>) {
@@ -435,6 +516,9 @@ function IntensitySlider({
   function onPointerUp(event: ReactPointerEvent<HTMLDivElement>) {
     if (!draggingRef.current) return
     draggingRef.current = false
+    const finalValue = localRef.current
+    lastSentRef.current = finalValue
+    onCommit(finalValue)
     try {
       event.currentTarget.releasePointerCapture(event.pointerId)
     } catch {
@@ -446,16 +530,16 @@ function IntensitySlider({
     if (disabled) return
     if (event.key === 'ArrowLeft' || event.key === 'ArrowDown') {
       event.preventDefault()
-      onChange(clamp01(value - 0.01))
+      onCommit(quantizeIntensity(value - INTENSITY_STEP))
     } else if (event.key === 'ArrowRight' || event.key === 'ArrowUp') {
       event.preventDefault()
-      onChange(clamp01(value + 0.01))
+      onCommit(quantizeIntensity(value + INTENSITY_STEP))
     } else if (event.key === 'Home') {
       event.preventDefault()
-      onChange(0)
+      onCommit(0)
     } else if (event.key === 'End') {
       event.preventDefault()
-      onChange(1)
+      onCommit(1)
     }
   }
 
@@ -469,6 +553,7 @@ function IntensitySlider({
       aria-valuemin={0}
       aria-valuemax={100}
       aria-valuenow={pct}
+      aria-valuetext={`${pct}%`}
       aria-disabled={disabled || undefined}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
