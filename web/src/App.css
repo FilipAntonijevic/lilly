@@ -300,7 +300,7 @@
   position: absolute;
   left: 50%;
   top: 46%;
-  width: min(72vw, 320px);
+  width: min(88vw, 400px);
   aspect-ratio: 3 / 4;
   transform: translate(-50%, -50%);
   border: 1.5px solid rgba(255, 248, 243, 0.55);
@@ -313,11 +313,11 @@
 .camera-guide {
   position: absolute;
   left: 50%;
-  top: calc(46% + min(36vw, 160px) + 0.85rem);
+  top: calc(46% + min(44vw, 200px) + 0.85rem);
   transform: translateX(-50%);
   z-index: 2;
   margin: 0;
-  max-width: min(78vw, 280px);
+  max-width: min(88vw, 320px);
   text-align: center;
   font-size: 0.72rem;
   line-height: 1.35;
