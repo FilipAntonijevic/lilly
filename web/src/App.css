@@ -442,7 +442,6 @@
   overflow: hidden;
   box-shadow: var(--shadow);
   background: #1a1614;
-  touch-action: none;
 }
 
 .tryon-canvas {
@@ -450,8 +449,8 @@
   width: 100%;
   height: auto;
   vertical-align: top;
-  cursor: crosshair;
-  touch-action: none;
+  cursor: default;
+  touch-action: pan-y;
 }
 
 .tryon-controls {

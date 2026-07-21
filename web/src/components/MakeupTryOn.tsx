@@ -3,21 +3,15 @@ import {
   useMemo,
   useRef,
   useState,
-  type PointerEvent as ReactPointerEvent,
   type WheelEvent as ReactWheelEvent,
 } from 'react'
 import { useLanguage } from '../i18n/LanguageContext'
 import { isMessageKey } from '../i18n/messages'
-import type { TryOnPolygonId } from '../lib/faceLandmarker'
 import {
   TRYON_ZONE_ORDER,
   buildTryOnPolygons,
-  clonePolygons,
-  polygonsForZone,
-  type EditableTryOnPolygon,
-  type Point2D,
 } from '../lib/tryOnRegions'
-import { paintSoftMakeup, pathSmoothRing } from '../lib/tryOnRender'
+import { paintSoftMakeup } from '../lib/tryOnRender'
 import { shadeFamilyKey } from '../lib/shadeFamilies'
 import type {
   FaceLandmarkPoint,
@@ -35,11 +29,6 @@ interface MakeupTryOnProps {
   catalog: MakeupProduct[]
 }
 
-interface DragState {
-  regionId: TryOnPolygonId
-  pointIndex: number
-}
-
 interface ZoneLayerState {
   intensity: number
   /** Currently painted / selected shade */
@@ -48,7 +37,6 @@ interface ZoneLayerState {
   lineProduct: MakeupProduct | null
 }
 
-const HANDLE_HIT_PX = 16
 const DEFAULT_INTENSITY = 0
 
 function initialZoneLayers(routine: FaceZoneMatch[]): Record<FaceZoneId, ZoneLayerState> {
@@ -74,16 +62,13 @@ export function MakeupTryOn({
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const imageRef = useRef<HTMLImageElement | null>(null)
   const [imageReady, setImageReady] = useState(false)
-  const [polygons, setPolygons] = useState<EditableTryOnPolygon[]>(() =>
-    buildTryOnPolygons(landmarks),
-  )
   const [activeZone, setActiveZone] = useState<FaceZoneId>('eyes')
   const [layers, setLayers] = useState<Record<FaceZoneId, ZoneLayerState>>(() =>
     initialZoneLayers(routine),
   )
   const [pickerOpen, setPickerOpen] = useState(false)
-  const dragRef = useRef<DragState | null>(null)
-  const basePolygonsRef = useRef(polygons)
+
+  const polygons = useMemo(() => buildTryOnPolygons(landmarks), [landmarks])
 
   const zoneTabs = useMemo(() => {
     return TRYON_ZONE_ORDER.map((zoneId) => {
@@ -98,16 +83,6 @@ export function MakeupTryOn({
   }, [routine, t])
 
   const activeLayer = layers[activeZone]
-  const activePolygons = useMemo(
-    () => polygonsForZone(polygons, activeZone),
-    [polygons, activeZone],
-  )
-
-  useEffect(() => {
-    const next = buildTryOnPolygons(landmarks)
-    setPolygons(next)
-    basePolygonsRef.current = next
-  }, [landmarks])
 
   useEffect(() => {
     setLayers(initialZoneLayers(routine))
@@ -172,132 +147,7 @@ export function MakeupTryOn({
       layers: paintLayers,
       landmarks,
     })
-
-    for (const poly of activePolygons) {
-      ctx.save()
-      ctx.strokeStyle = 'rgba(255, 248, 243, 0.9)'
-      ctx.lineWidth = 2
-      ctx.setLineDash([5, 4])
-      if (poly.kind === 'circle' && poly.points.length >= 2) {
-        const [c, rim] = poly.points
-        const cx = c.x * width
-        const cy = c.y * height
-        const r =
-          Math.hypot(rim.x - c.x, rim.y - c.y) * Math.min(width, height)
-        ctx.beginPath()
-        ctx.arc(cx, cy, Math.max(4, r), 0, Math.PI * 2)
-        ctx.stroke()
-      } else {
-        pathSmoothRing(ctx, poly.points, width, height)
-        ctx.stroke()
-      }
-      ctx.restore()
-
-      for (const point of poly.points) {
-        const px = point.x * width
-        const py = point.y * height
-        ctx.beginPath()
-        ctx.fillStyle = 'rgba(26, 22, 20, 0.85)'
-        ctx.arc(px, py, Math.max(5, width * 0.008), 0, Math.PI * 2)
-        ctx.fill()
-        ctx.beginPath()
-        ctx.fillStyle = '#fff8f3'
-        ctx.arc(px, py, Math.max(3, width * 0.005), 0, Math.PI * 2)
-        ctx.fill()
-      }
-    }
-  }, [imageReady, polygons, layers, activePolygons, landmarks])
-
-  function clientToNorm(clientX: number, clientY: number): Point2D | null {
-    const canvas = canvasRef.current
-    if (!canvas) return null
-    const rect = canvas.getBoundingClientRect()
-    if (rect.width <= 0 || rect.height <= 0) return null
-    return {
-      x: clamp01((clientX - rect.left) / rect.width),
-      y: clamp01((clientY - rect.top) / rect.height),
-    }
-  }
-
-  function hitTest(norm: Point2D): DragState | null {
-    const canvas = canvasRef.current
-    if (!canvas) return null
-    const rect = canvas.getBoundingClientRect()
-    const hitNormX = HANDLE_HIT_PX / rect.width
-    const hitNormY = HANDLE_HIT_PX / rect.height
-
-    let best: DragState | null = null
-    let bestDist = Infinity
-    for (const poly of activePolygons) {
-      poly.points.forEach((point, pointIndex) => {
-        const dx = (point.x - norm.x) / hitNormX
-        const dy = (point.y - norm.y) / hitNormY
-        const dist = dx * dx + dy * dy
-        if (dist <= 1 && dist < bestDist) {
-          bestDist = dist
-          best = { regionId: poly.id, pointIndex }
-        }
-      })
-    }
-    return best
-  }
-
-  function onPointerDown(e: ReactPointerEvent<HTMLCanvasElement>) {
-    const norm = clientToNorm(e.clientX, e.clientY)
-    if (!norm) return
-    const hit = hitTest(norm)
-    if (!hit) return
-    dragRef.current = hit
-    e.currentTarget.setPointerCapture(e.pointerId)
-    e.preventDefault()
-  }
-
-  function onPointerMove(e: ReactPointerEvent<HTMLCanvasElement>) {
-    const drag = dragRef.current
-    if (!drag) return
-    const norm = clientToNorm(e.clientX, e.clientY)
-    if (!norm) return
-    setPolygons((prev) => {
-      const next = clonePolygons(prev)
-      const poly = next.find((p) => p.id === drag.regionId)
-      if (!poly || !poly.points[drag.pointIndex]) return prev
-      if (poly.kind === 'circle' && drag.pointIndex === 0 && poly.points[1]) {
-        const dx = norm.x - poly.points[0].x
-        const dy = norm.y - poly.points[0].y
-        poly.points[0] = norm
-        poly.points[1] = {
-          x: clamp01(poly.points[1].x + dx),
-          y: clamp01(poly.points[1].y + dy),
-        }
-      } else {
-        poly.points[drag.pointIndex] = norm
-      }
-      return next
-    })
-  }
-
-  function onPointerUp(e: ReactPointerEvent<HTMLCanvasElement>) {
-    if (!dragRef.current) return
-    dragRef.current = null
-    try {
-      e.currentTarget.releasePointerCapture(e.pointerId)
-    } catch {
-      /* already released */
-    }
-  }
-
-  function resetActivePolygons() {
-    const base = basePolygonsRef.current
-    setPolygons((prev) => {
-      const next = clonePolygons(prev)
-      for (const poly of next) {
-        if (poly.zoneId !== activeZone) continue
-        const original = base.find((p) => p.id === poly.id)
-        if (original) poly.points = original.points.map((p) => ({ ...p }))
-      }
-      return next
-    })
-  }
+  }, [imageReady, polygons, layers, landmarks])
 
   function updateActiveLayer(patch: Partial<ZoneLayerState>) {
     setLayers((prev) => ({
@@ -339,10 +189,6 @@ export function MakeupTryOn({
         <canvas
           ref={canvasRef}
           className="tryon-canvas"
-          onPointerDown={onPointerDown}
-          onPointerMove={onPointerMove}
-          onPointerUp={onPointerUp}
-          onPointerCancel={onPointerUp}
           aria-label={t('tryon.canvasLabel')}
         />
       </div>
@@ -384,7 +230,6 @@ export function MakeupTryOn({
             catalog={catalog}
             selected={activeLayer.product}
             onSelectedChange={(product) => {
-              // Shade swap must not reset or bump intensity.
               updateActiveLayer({ product })
             }}
           />
@@ -399,13 +244,6 @@ export function MakeupTryOn({
             onClick={() => setPickerOpen(true)}
           >
             {t('tryon.pickSelf')}
-          </button>
-          <button
-            type="button"
-            className="tryon-chip"
-            onClick={resetActivePolygons}
-          >
-            {t('tryon.reset')}
           </button>
         </div>
 
@@ -452,7 +290,7 @@ export function MakeupTryOn({
         )}
 
         <p className="tryon-hint">
-          {isLipsZone ? t('tryon.hintLips') : t('tryon.hintZone')}
+          {isLipsZone ? t('tryon.hintLips') : t('tryon.hintView')}
         </p>
       </div>
 
