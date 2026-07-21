@@ -1,8 +1,8 @@
 export type Locale = 'sr' | 'en'
 
 const sr = {
-  'landing.headline': 'Find and test makeup now!',
-  'landing.tip': 'Use photo in natural lighting for best results.',
+  'landing.headline': 'Pronađi i isprobaj šminku sada!',
+  'landing.tip': 'Za najbolje rezultate koristi fotku na prirodnom svetlu.',
   'landing.catalogCount': 'Katalog: {count} artikala sa dm.rs',
   'landing.takeSelfie': 'Uslikaj selfie',
   'landing.uploadSelfie': 'Otpremi iz galerije',
