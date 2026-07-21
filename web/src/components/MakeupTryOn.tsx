@@ -390,10 +390,6 @@ export function MakeupTryOn({
               />
             </div>
           )}
-
-          <p className="tryon-hint">
-            {isLipsZone ? t('tryon.hintLips') : t('tryon.hintView')}
-          </p>
         </div>
       </div>
 
