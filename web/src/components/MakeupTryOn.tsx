@@ -3,6 +3,8 @@ import {
   useMemo,
   useRef,
   useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type PointerEvent as ReactPointerEvent,
   type WheelEvent as ReactWheelEvent,
 } from 'react'
 import { useLanguage } from '../i18n/LanguageContext'
@@ -180,7 +182,7 @@ export function MakeupTryOn({
     }))
   }
 
-  function onIntensityWheel(e: ReactWheelEvent<HTMLLabelElement>) {
+  function onIntensityWheel(e: ReactWheelEvent<HTMLDivElement>) {
     e.preventDefault()
     const delta = e.deltaY > 0 ? -0.03 : 0.03
     updateActiveLayer({
@@ -317,32 +319,18 @@ export function MakeupTryOn({
               </button>
             </div>
           ) : (
-            <label className="tryon-intensity" onWheel={onIntensityWheel}>
-              <span className="tryon-intensity-label">
-                {t('tryon.intensity')}
+            <div className="tryon-intensity" onWheel={onIntensityWheel}>
+              <div className="tryon-intensity-label">
+                <span>{t('tryon.intensity')}</span>
                 <strong>{t('tryon.layers', { pct: layersPct })}</strong>
-              </span>
-              <input
-                type="range"
-                min={0}
-                max={100}
-                step={1}
-                value={layersPct}
+              </div>
+              <IntensitySlider
+                value={activeLayer.intensity}
                 disabled={!activeLayer.product}
-                onInput={(e) =>
-                  updateActiveLayer({
-                    intensity: Number((e.target as HTMLInputElement).value) / 100,
-                  })
-                }
-                onChange={(e) =>
-                  updateActiveLayer({ intensity: Number(e.target.value) / 100 })
-                }
-                aria-valuemin={0}
-                aria-valuemax={100}
-                aria-valuenow={layersPct}
-                aria-label={t('tryon.intensity')}
+                ariaLabel={t('tryon.intensity')}
+                onChange={(intensity) => updateActiveLayer({ intensity })}
               />
-            </label>
+            </div>
           )}
 
           <p className="tryon-hint">
@@ -395,4 +383,101 @@ export function MakeupTryOn({
 
 function clamp01(n: number): number {
   return Math.min(1, Math.max(0, n))
+}
+
+function IntensitySlider({
+  value,
+  disabled,
+  ariaLabel,
+  onChange,
+}: {
+  value: number
+  disabled?: boolean
+  ariaLabel: string
+  onChange: (next: number) => void
+}) {
+  const trackRef = useRef<HTMLDivElement>(null)
+  const draggingRef = useRef(false)
+  const pct = Math.round(clamp01(value) * 100)
+
+  function valueFromClientX(clientX: number): number | null {
+    const track = trackRef.current
+    if (!track) return null
+    const rect = track.getBoundingClientRect()
+    if (rect.width <= 0) return null
+    return clamp01((clientX - rect.left) / rect.width)
+  }
+
+  function applyClientX(clientX: number) {
+    const next = valueFromClientX(clientX)
+    if (next == null) return
+    onChange(next)
+  }
+
+  function onPointerDown(event: ReactPointerEvent<HTMLDivElement>) {
+    if (disabled) return
+    event.preventDefault()
+    draggingRef.current = true
+    try {
+      event.currentTarget.setPointerCapture(event.pointerId)
+    } catch {
+      /* ignore */
+    }
+    applyClientX(event.clientX)
+  }
+
+  function onPointerMove(event: ReactPointerEvent<HTMLDivElement>) {
+    if (!draggingRef.current || disabled) return
+    event.preventDefault()
+    applyClientX(event.clientX)
+  }
+
+  function onPointerUp(event: ReactPointerEvent<HTMLDivElement>) {
+    if (!draggingRef.current) return
+    draggingRef.current = false
+    try {
+      event.currentTarget.releasePointerCapture(event.pointerId)
+    } catch {
+      /* already released */
+    }
+  }
+
+  function onKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
+    if (disabled) return
+    if (event.key === 'ArrowLeft' || event.key === 'ArrowDown') {
+      event.preventDefault()
+      onChange(clamp01(value - 0.01))
+    } else if (event.key === 'ArrowRight' || event.key === 'ArrowUp') {
+      event.preventDefault()
+      onChange(clamp01(value + 0.01))
+    } else if (event.key === 'Home') {
+      event.preventDefault()
+      onChange(0)
+    } else if (event.key === 'End') {
+      event.preventDefault()
+      onChange(1)
+    }
+  }
+
+  return (
+    <div
+      ref={trackRef}
+      className={`tryon-intensity-track${disabled ? ' is-disabled' : ''}`}
+      role="slider"
+      tabIndex={disabled ? -1 : 0}
+      aria-label={ariaLabel}
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={pct}
+      aria-disabled={disabled || undefined}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerCancel={onPointerUp}
+      onKeyDown={onKeyDown}
+    >
+      <div className="tryon-intensity-fill" style={{ width: `${pct}%` }} />
+      <div className="tryon-intensity-thumb" style={{ left: `${pct}%` }} />
+    </div>
+  )
 }

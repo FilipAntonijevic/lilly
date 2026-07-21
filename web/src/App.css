@@ -1075,10 +1075,62 @@
   font-variant-numeric: tabular-nums;
 }
 
-.tryon-intensity input[type='range'] {
+.tryon-intensity-track {
+  position: relative;
   width: 100%;
-  accent-color: var(--blush-deep);
+  height: 1.85rem;
+  display: flex;
+  align-items: center;
+  touch-action: none;
   cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  outline: none;
+}
+
+.tryon-intensity-track::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 0.42rem;
+  border-radius: 999px;
+  background: rgba(26, 22, 20, 0.12);
+}
+
+.tryon-intensity-fill {
+  position: absolute;
+  left: 0;
+  height: 0.42rem;
+  border-radius: 999px;
+  background: var(--blush-deep);
+  pointer-events: none;
+}
+
+.tryon-intensity-thumb {
+  position: absolute;
+  top: 50%;
+  width: 1.2rem;
+  height: 1.2rem;
+  margin-left: -0.6rem;
+  border-radius: 50%;
+  background: var(--foam);
+  border: 2px solid var(--blush-deep);
+  box-shadow: 0 1px 4px rgba(26, 22, 20, 0.18);
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.tryon-intensity-track:focus-visible .tryon-intensity-thumb {
+  box-shadow:
+    0 0 0 3px rgba(201, 90, 78, 0.28),
+    0 1px 4px rgba(26, 22, 20, 0.18);
+}
+
+.tryon-intensity-track.is-disabled {
+  opacity: 0.45;
+  cursor: default;
+  pointer-events: none;
 }
 
 .tryon-toolbar,
