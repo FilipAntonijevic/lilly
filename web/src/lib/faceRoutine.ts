@@ -13,7 +13,7 @@ import {
   resolveDepthFromItaAndFitzpatrick,
 } from './fitzpatrick'
 import { matchProducts } from './matchProducts'
-import { lipstickTheoryBonus } from './lipstickTheory'
+import { lipstickTheoryBonus, classifyLipShade } from './lipstickTheory'
 
 function regionLab(regions: FaceRegionSample[], id: FaceRegionSample['id']): LabColor | null {
   return regions.find((r) => r.id === id)?.lab ?? null
@@ -140,7 +140,10 @@ export function buildFaceRoutine(
 
   const lipstick = bestInCategory(catalog, skin, 'lipstick', (product, base) => {
     const { bonus } = lipstickTheoryBonus(product, skin)
-    return base + bonus
+    // Hard ban on pink family so it never wins against berry/brown/red options.
+    const pinkBan =
+      classifyLipShade(product.shadeHex).family === 'pink' ? -80 : 0
+    return base + bonus + pinkBan
   })
   if (lipstick) {
     const { reasonKeys } = lipstickTheoryBonus(lipstick.product, skin)

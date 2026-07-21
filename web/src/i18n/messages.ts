@@ -59,7 +59,7 @@ const sr = {
   'tryon.lipsOn': 'Uključen',
   'tryon.lipsOff': 'Isključen',
   'tryon.hintLips':
-    'Karmin je uključeno / isključeno — bez klizača intenziteta. Izaberi nijansu ili proizvod, pa uključi.',
+    'Karmin je uključeno / isključeno — bez klizača intenziteta. Podrazumevano je uključen; isključi ga ili promeni nijansu.',
   'tryon.hintEdit':
     'Izaberi zonu, pa pomeri tačke da poravnaš poligon. Scroll ili klizač menja intenzitet.',
   'tryon.hintView': 'Klizač ili scroll pojačava / smanjuje koliko je šminke naneseno.',

@@ -2,14 +2,15 @@ import type { MakeupProduct, SkinDepth, SkinProfile, Undertone } from '../types'
 import { deltaE76, hexToLab } from './color'
 
 /**
- * Lipstick color theory (Maybelline / L'Oréal / Clarins / Byrdie consensus):
+ * Lipstick color theory (Maybelline / L'Oréal / Clarins / Byrdie consensus),
+ * biased toward what people actually wear now:
  * - Do NOT pick lipstick by closeness to skin (that yields pointless nudes).
  * - Match lipstick undertone family to skin undertone.
- * - Cool → blue-red / cherry / berry / plum / mauve
- * - Warm → orange-red / brick / coral / peach / terracotta
- * - Neutral → true reds + either family
+ * - Cool → berry / blue-red / plum / mauve (not baby pink)
+ * - Warm → brick / terracotta / brown / coral
+ * - Neutral → true reds, berry, rosewood brown
  * - Olive → muted brick / terracotta / soft berry (avoid icy pink)
- * - Prefer a real chromatic lip (esp. a flattering red) over skin-matching beige.
+ * - Prefer mid–deep chromatic lips over pastel pink — fashion has moved on.
  */
 
 export type LipColorFamily =
@@ -52,7 +53,15 @@ export function classifyLipShade(shadeHex: string): LipShadeProfile {
     family = 'coral'
   } else if (lab.a > 22 && lab.b < 8 && hueDeg < 15) {
     family = lab.L < 40 || lab.a > 40 ? 'berry' : 'plum'
-  } else if (lab.a > 15 && lab.b > -5 && lab.b < 22 && chroma < 40) {
+  } else if (
+    // Mid–deep rose / mauve reads as berry-plum, not “pink lipstick”.
+    lab.a > 18 &&
+    lab.b < 14 &&
+    lab.L < 44 &&
+    chroma >= 18
+  ) {
+    family = lab.L < 34 ? 'plum' : 'berry'
+  } else if (lab.a > 15 && lab.b > -5 && lab.b < 22 && chroma < 40 && lab.L >= 44) {
     family = 'pink'
   } else if (lab.a > 25 && chroma > 30) {
     family = lab.b >= 10 ? 'warm_red' : 'cool_red'
@@ -66,35 +75,63 @@ export function classifyLipShade(shadeHex: string): LipShadeProfile {
   return { family, chroma, hueDeg, lab, isStatementRed }
 }
 
+/** Pink is last-resort / demoted — berry, brown, plum, reds win first. */
 const PREFERRED_BY_UNDERTONE: Record<Undertone, LipColorFamily[]> = {
-  cool: ['cool_red', 'berry', 'plum', 'pink', 'warm_red'],
-  warm: ['warm_red', 'coral', 'brown', 'pink', 'cool_red'],
-  neutral: ['cool_red', 'warm_red', 'berry', 'coral', 'pink'],
-  olive: ['warm_red', 'coral', 'brown', 'berry', 'cool_red'],
+  cool: ['berry', 'cool_red', 'plum', 'brown', 'warm_red'],
+  warm: ['brown', 'warm_red', 'coral', 'berry', 'cool_red'],
+  neutral: ['berry', 'brown', 'cool_red', 'warm_red', 'plum'],
+  olive: ['brown', 'warm_red', 'berry', 'coral', 'plum'],
 }
 
-/** Depth nudges which red intensity looks natural. */
+/** Depth nudges which intensity looks natural — favor deeper lips overall. */
 function depthRedBias(depth: SkinDepth, family: LipColorFamily, L: number): number {
   const deep =
     depth === 'deep' || depth === 'very_deep' || depth === 'tan'
   const fair = depth === 'very_light' || depth === 'light'
 
   if (deep) {
-    if (family === 'berry' || family === 'plum' || family === 'cool_red') return 8
-    if (L > 55 && family === 'pink') return -6
+    if (family === 'berry' || family === 'plum' || family === 'brown') return 12
+    if (family === 'cool_red' || family === 'warm_red') return 7
+    if (family === 'pink' || L > 52) return -14
     return 2
   }
   if (fair) {
-    if (family === 'coral' || family === 'pink' || family === 'warm_red') return 6
-    if (family === 'plum' && L < 30) return -4
+    // Fair skin still looks current in soft berry / brick — not ballet pink.
+    if (family === 'berry' || family === 'cool_red' || family === 'warm_red') return 7
+    if (family === 'brown' || family === 'plum' || family === 'coral') return 5
+    if (family === 'pink' && L > 48) return -12
+    if (family === 'pink') return -5
     return 1
   }
+  // Medium depths: rosewood / wine / brick.
+  if (family === 'berry' || family === 'brown' || family === 'plum') return 6
+  if (family === 'cool_red' || family === 'warm_red') return 4
+  if (family === 'pink' && L > 50) return -10
+  if (family === 'pink') return -4
+  return 0
+}
+
+/**
+ * Prefer mid–deep lip lightness (wine, brick, rosewood) over pastel pink.
+ * Lab L roughly: <35 deep, 35–48 everyday pigment, >55 light/pastel.
+ */
+function darknessBias(L: number, family: LipColorFamily): number {
+  if (L < 32) {
+    if (family === 'plum' || family === 'berry' || family === 'brown') return 12
+    if (family === 'cool_red' || family === 'warm_red') return 8
+    return 5
+  }
+  if (L < 42) return 8
+  if (L < 50) return 3
+  if (L > 58 && (family === 'pink' || family === 'coral')) return -16
+  if (L > 55 && family === 'pink') return -12
+  if (family === 'pink') return -18
   return 0
 }
 
 /**
  * Extra score for lipstick ranking on top of generic category score.
- * Higher = better. Designed so a flattering red beats a nude near skin.
+ * Higher = better. Designed so a flattering red / berry beats pastel pink or nude.
  */
 export function lipstickTheoryBonus(
   product: MakeupProduct,
@@ -121,7 +158,7 @@ export function lipstickTheoryBonus(
     bonus += Math.min(18, (shade.chroma - 22) * 0.45)
   }
 
-  // Undertone family match (color theory).
+  // Undertone family match (color theory) — pink is no longer in the preferred set.
   if (familyRank === 0) {
     bonus += 26
     reasons.push('reason.lipstickFamily')
@@ -134,6 +171,9 @@ export function lipstickTheoryBonus(
     bonus += 4
   } else if (shade.family === 'nude') {
     bonus -= 8
+  } else if (shade.family === 'pink') {
+    // Never lead with pink lipstick — catalog is full of them and they win on chroma alone.
+    bonus -= 40
   } else {
     bonus -= 10
   }
@@ -176,6 +216,7 @@ export function lipstickTheoryBonus(
   }
 
   bonus += depthRedBias(skin.depth, shade.family, shade.lab.L)
+  bonus += darknessBias(shade.lab.L, shade.family)
 
   // Hair temperature harmony (light touch).
   if (!skin.hair.bald) {
@@ -195,11 +236,15 @@ export function lipstickTheoryBonus(
 
   // Name hints when hex is ambiguous (Ruby Red, Coral, …).
   const name = `${product.name} ${product.shadeName ?? ''}`.toLowerCase()
-  if (/(ruby|cherry|crimson|scarlet|crven|red\b|rosso)/u.test(name) && shade.chroma > 30) {
-    bonus += 6
+  if (/(ruby|cherry|crimson|scarlet|crven|red\b|rosso|wine|bordo|berry|plum|šljiva|mauve|brick|terracotta|rosewood|braun|brown)/u.test(name) && shade.chroma > 22) {
+    bonus += 8
   }
   if (/(nude|beige|buff|naked)/u.test(name)) {
     bonus -= 10
+  }
+  // Pastel / baby pink names — hard avoid.
+  if (/(baby\s*pink|ballet|candy|petal|soft\s*pink|light\s*pink|roze|pink\b|pinky)/u.test(name)) {
+    bonus -= 22
   }
 
   return { bonus, reasonKeys: [...new Set(reasons)] }
