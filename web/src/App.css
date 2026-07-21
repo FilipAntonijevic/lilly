@@ -1406,16 +1406,22 @@
 .shade-dots {
   display: flex;
   flex-direction: column;
-  gap: 0.55rem;
-  padding: 0.15rem 0.1rem 0.25rem;
+  gap: 0.35rem;
+  padding: 0.1rem 0.05rem 0.15rem;
   min-width: 0;
+  overflow: visible;
 }
 
 .shade-dots-row {
   display: flex;
   flex-wrap: nowrap;
-  gap: 0.55rem;
-  padding: 0.05rem 0;
+  align-items: center;
+  gap: 0.7rem;
+  /* Padding keeps selected/scaled dots inside the scrollport (overflow-y
+     becomes auto whenever overflow-x scrolls, so padding is the real fix). */
+  padding: 0.5rem 0.25rem;
+  box-sizing: content-box;
+  min-height: 1.55rem;
   overflow-x: auto;
   overflow-y: hidden;
   overscroll-behavior-x: contain;
@@ -1447,14 +1453,14 @@
 }
 
 .shade-dot-btn:hover {
-  transform: scale(1.06);
+  transform: scale(1.08);
 }
 
 .shade-dot-btn.is-selected {
   box-shadow:
     0 0 0 2.5px var(--ink),
     0 0 0 1px rgba(26, 22, 20, 0.2);
-  transform: scale(1.18);
+  transform: scale(1.16);
   cursor: grab;
 }
 

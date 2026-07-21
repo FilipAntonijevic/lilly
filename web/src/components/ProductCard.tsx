@@ -41,7 +41,7 @@ function optimizeImageUrl(url?: string): string | undefined {
 }
 
 /** Dot + gap used to estimate how many shades fit in one row. */
-const SHADE_DOT_SLOT_PX = 1.55 * 16 + 0.55 * 16
+const SHADE_DOT_SLOT_PX = 1.55 * 16 + 0.7 * 16
 
 function splitShadeRows(
   variants: MakeupProduct[],
@@ -118,7 +118,7 @@ export function ProductCard({
     function measure() {
       const width = root!.clientWidth
       if (width <= 0) return
-      setPerRow(Math.max(1, Math.floor((width + 0.55 * 16) / SHADE_DOT_SLOT_PX)))
+      setPerRow(Math.max(1, Math.floor((width + 0.7 * 16) / SHADE_DOT_SLOT_PX)))
     }
 
     measure()
