@@ -12,7 +12,6 @@ import {
   buildTryOnPolygons,
 } from '../lib/tryOnRegions'
 import { paintSoftMakeup } from '../lib/tryOnRender'
-import { shadeFamilyKey } from '../lib/shadeFamilies'
 import type {
   FaceLandmarkPoint,
   FaceZoneId,
@@ -20,7 +19,6 @@ import type {
   MakeupProduct,
 } from '../types'
 import { ProductCard } from './ProductCard'
-import { TryOnProductPicker } from './TryOnProductPicker'
 
 interface MakeupTryOnProps {
   photoUrl: string
@@ -67,7 +65,6 @@ export function MakeupTryOn({
   const [layers, setLayers] = useState<Record<FaceZoneId, ZoneLayerState>>(() =>
     initialZoneLayers(routine),
   )
-  const [pickerOpen, setPickerOpen] = useState(false)
 
   const polygons = useMemo(() => buildTryOnPolygons(landmarks), [landmarks])
 
@@ -167,18 +164,10 @@ export function MakeupTryOn({
 
   const layersPct = Math.round(activeLayer.intensity * 100)
   const recommended = routine.find((z) => z.zoneId === activeZone)?.match?.product
-  const activeCategory =
-    routine.find((z) => z.zoneId === activeZone)?.category ?? 'lipstick'
   const cardProduct =
     activeLayer.lineProduct ?? activeLayer.product ?? recommended ?? null
   const isLipsZone = activeZone === 'lips'
   const lipsOn = (layers.lips?.intensity ?? 0) > 0.5
-
-  function pickProductLine(product: MakeupProduct) {
-    // Keep current intensity (including 0%) when switching products/shades.
-    updateActiveLayer({ product, lineProduct: product })
-    setPickerOpen(false)
-  }
 
   function setLipsOn(on: boolean) {
     updateActiveLayer({ intensity: on ? 1 : 0 })
@@ -213,10 +202,7 @@ export function MakeupTryOn({
               role="tab"
               aria-selected={isActive}
               className={`tryon-zone-tab${isActive ? ' is-active' : ''}${hasMakeup ? ' is-applied' : ''}`}
-              onClick={() => {
-                setActiveZone(tab.zoneId)
-                setPickerOpen(false)
-              }}
+              onClick={() => setActiveZone(tab.zoneId)}
             >
               {tab.label}
             </button>
@@ -237,16 +223,6 @@ export function MakeupTryOn({
         ) : (
           <p className="zone-empty">{t('results.emptyZone')}</p>
         )}
-
-        <div className="tryon-zone-actions">
-          <button
-            type="button"
-            className="btn-tryon-pick"
-            onClick={() => setPickerOpen(true)}
-          >
-            {t('tryon.pickSelf')}
-          </button>
-        </div>
 
         {isLipsZone ? (
           <div className="tryon-lips-toggle">
@@ -294,19 +270,6 @@ export function MakeupTryOn({
           {isLipsZone ? t('tryon.hintLips') : t('tryon.hintView')}
         </p>
       </div>
-
-      {pickerOpen && (
-        <TryOnProductPicker
-          category={activeCategory}
-          catalog={catalog}
-          selectedId={activeLayer.product?.id ?? null}
-          selectedLineKey={
-            cardProduct ? shadeFamilyKey(cardProduct) : null
-          }
-          onPick={pickProductLine}
-          onClose={() => setPickerOpen(false)}
-        />
-      )}
     </div>
   )
 }
