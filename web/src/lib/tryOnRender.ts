@@ -5,9 +5,10 @@ import { TRYON_BASE_ALPHA } from './tryOnRegions'
 /**
  * Production-oriented makeup compositing (ModiFace / Snap Lens Studio patterns):
  * 1) Smooth Catmull-Rom rings instead of jagged polygon edges
- * 2) Feathered alpha masks (Gaussian blur)
- * 3) Soft-light / multiply so skin texture & lighting stay visible
- * 4) Lips: crisp vermilion + soft-light body + subtle gloss highlight
+ * 2) Feathered alpha masks (Gaussian blur) for skin products
+ * 3) Soft-light / multiply / overlay so skin texture stays visible
+ * 4) Lips: luminance-preserving `color` blend + lip-groove texture + gloss
+ *    (uses the real photo texture — better than flat fill or generative patches)
  * 5) Eyes: lid / crease / outer layers with sclera punched out
  */
 
@@ -65,20 +66,20 @@ export function paintSoftMakeup(options: {
     // Keep foundation off lips / sclera (Snap Face Mask opacity carve-outs).
     punchOpeningsFromMask(mask, landmarks, width, height)
     paintColorThroughMask(ctx, mask, layers.faceBase.product!.shadeHex, alpha, 'soft-light')
+    paintColorThroughMask(ctx, mask, layers.faceBase.product!.shadeHex, alpha * 0.35, 'color')
   })
 
   paintZoneIfActive(layers, 'contour', (alpha) => {
     for (const id of ['jawLeft', 'jawRight'] as const) {
       const poly = polygons.find((p) => p.id === id)
       if (!poly || poly.points.length < 3) continue
-      const mask = featheredSmoothRing(poly.points, width, height, minSide * 0.02)
-      paintColorThroughMask(ctx, mask, layers.contour.product!.shadeHex, alpha * 0.92, 'multiply')
-      // Second softer multiply pass for depth without harsh edges.
+      const mask = featheredSmoothRing(poly.points, width, height, minSide * 0.014)
+      paintColorThroughMask(ctx, mask, layers.contour.product!.shadeHex, alpha, 'multiply')
       paintColorThroughMask(
         ctx,
-        featheredSmoothRing(poly.points, width, height, minSide * 0.04),
+        featheredSmoothRing(poly.points, width, height, minSide * 0.03),
         layers.contour.product!.shadeHex,
-        alpha * 0.35,
+        alpha * 0.4,
         'multiply',
       )
     }
@@ -89,13 +90,15 @@ export function paintSoftMakeup(options: {
       const poly = polygons.find((p) => p.id === id)
       if (!poly || poly.kind !== 'circle' || poly.points.length < 2) continue
       const mask = softCircleMask(
-        poly.points[0],
+        poly.points[0]!,
         circleRadius(poly),
         width,
         height,
-        minSide * 0.03,
+        minSide * 0.022,
       )
+      // Concealer: lighten + unify tone while keeping skin grain.
       paintColorThroughMask(ctx, mask, layers.underEye.product!.shadeHex, alpha, 'soft-light')
+      paintColorThroughMask(ctx, mask, layers.underEye.product!.shadeHex, alpha * 0.35, 'color')
     }
   })
 
@@ -104,15 +107,14 @@ export function paintSoftMakeup(options: {
       const poly = polygons.find((p) => p.id === id)
       if (!poly || poly.kind !== 'circle' || poly.points.length < 2) continue
       const mask = softCircleMask(
-        poly.points[0],
+        poly.points[0]!,
         circleRadius(poly),
         width,
         height,
-        minSide * 0.045,
+        minSide * 0.035,
       )
-      paintColorThroughMask(ctx, mask, layers.cheeks.product!.shadeHex, alpha, 'soft-light')
-      // Warm lift pass (lighter).
-      paintColorThroughMask(ctx, mask, layers.cheeks.product!.shadeHex, alpha * 0.25, 'overlay')
+      paintColorThroughMask(ctx, mask, layers.cheeks.product!.shadeHex, alpha, 'overlay')
+      paintColorThroughMask(ctx, mask, layers.cheeks.product!.shadeHex, alpha * 0.55, 'soft-light')
     }
   })
 
@@ -154,8 +156,8 @@ function paintLips(
       : pointsFromIndices(landmarks, OUTER_LIPS)
   if (outer.length < 3) return
 
-  // Slight outward expand along normals (cleaner than centroid scale).
-  const widened = expandRing(outer, 0.006)
+  // Slight outward expand so coverage meets the vermilion border.
+  const widened = expandRing(outer, 0.004)
   const mask = createCanvas(width, height)
   const mctx = mask.getContext('2d')
   if (!mctx) return
@@ -164,25 +166,112 @@ function paintLips(
   pathSmoothRing(mctx, widened, width, height)
   mctx.fill()
   mctx.globalCompositeOperation = 'destination-out'
-  punchSmoothRing(mctx, landmarks, INNER_MOUTH, width, height, -0.004)
+  punchSmoothRing(mctx, landmarks, INNER_MOUTH, width, height, -0.002)
   mctx.globalCompositeOperation = 'source-over'
 
-  // Tiny edge soften so anti-alias looks production-clean, not spray.
-  const bodyMask = featherMask(mask, Math.max(0.8, minSide * 0.0035))
+  // Hard edge with only AA-scale feather — lipstick is a film, not airbrush.
+  const bodyMask = featherMask(mask, Math.max(0.6, minSide * 0.0025))
 
-  // Snap/Lens Studio recipe: Soft Light body + light Multiply for depth.
-  paintColorThroughMask(ctx, bodyMask, hex, alpha, 'soft-light')
-  paintColorThroughMask(ctx, bodyMask, hex, alpha * 0.35, 'multiply')
+  // 1) `color` keeps photo luminance / pores / natural lip texture.
+  paintColorThroughMask(ctx, bodyMask, hex, alpha * 0.92, 'color')
+  // 2) Multiply adds pigment density (true lipstick body).
+  paintColorThroughMask(ctx, bodyMask, hex, alpha * 0.45, 'multiply')
+  // 3) Light source-over so bright reds/corals actually read as that shade.
+  paintColorThroughMask(ctx, bodyMask, hex, alpha * 0.18, 'source-over')
 
-  // Specular gloss along upper lip (Screen) — matte products still get a hint.
-  const gloss = lipGlossMask(landmarks, width, height, minSide)
+  // Micro lip grooves (vertical vermilion lines) — procedural, not AI.
+  const grooves = lipGrooveTexture(bodyMask, landmarks, width, height, minSide)
+  if (grooves) {
+    ctx.save()
+    ctx.globalAlpha = alpha * 0.28
+    ctx.globalCompositeOperation = 'multiply'
+    ctx.drawImage(grooves, 0, 0)
+    ctx.restore()
+  }
+
+  // Specular gloss (Screen) along upper lip center.
+  const gloss = lipGlossMask(landmarks, bodyMask, width, height, minSide)
   if (gloss) {
-    paintColorThroughMask(ctx, gloss, '#ffffff', alpha * 0.22, 'screen')
+    paintColorThroughMask(ctx, gloss, '#ffffff', alpha * 0.28, 'screen')
+  }
+}
+
+/** Fine vertical vermilion grooves clipped to the lip mask. */
+function lipGrooveTexture(
+  lipMask: HTMLCanvasElement,
+  landmarks: FaceLandmarkPoint[],
+  width: number,
+  height: number,
+  minSide: number,
+): HTMLCanvasElement | null {
+  const bounds = lipPixelBounds(landmarks, width, height)
+  if (!bounds) return null
+
+  const tex = createCanvas(width, height)
+  const tctx = tex.getContext('2d')
+  if (!tctx) return null
+
+  const img = tctx.createImageData(width, height)
+  const data = img.data
+  const { minX, maxX, minY, maxY } = bounds
+  const midY = (minY + maxY) / 2
+  const lipH = Math.max(1, maxY - minY)
+
+  for (let y = minY; y <= maxY; y++) {
+    for (let x = minX; x <= maxX; x++) {
+      // Vertical groove frequency scales with face size.
+      const groove = Math.sin((x / minSide) * 520 + Math.sin(y * 0.09) * 1.4)
+      const fine = Math.sin((x / minSide) * 1100 + y * 0.05)
+      // Stronger near horizontal mid of each lip half.
+      const distMid = Math.abs(y - midY) / lipH
+      const envelope = Math.max(0, 1 - distMid * 1.6)
+      const v = 1 - (0.55 + groove * 0.28 + fine * 0.12) * envelope * 0.55
+      const shade = Math.round(clamp01(v) * 255)
+      const i = (y * width + x) * 4
+      data[i] = shade
+      data[i + 1] = shade
+      data[i + 2] = shade
+      data[i + 3] = 255
+    }
+  }
+  tctx.putImageData(img, 0, 0)
+  tctx.globalCompositeOperation = 'destination-in'
+  tctx.drawImage(lipMask, 0, 0)
+  tctx.globalCompositeOperation = 'source-over'
+  return featherMask(tex, Math.max(0.4, minSide * 0.0015))
+}
+
+function lipPixelBounds(
+  landmarks: FaceLandmarkPoint[],
+  width: number,
+  height: number,
+): { minX: number; maxX: number; minY: number; maxY: number } | null {
+  const pts = pointsFromIndices(landmarks, OUTER_LIPS)
+  if (pts.length < 3) return null
+  let minX = width
+  let maxX = 0
+  let minY = height
+  let maxY = 0
+  for (const p of pts) {
+    const x = Math.round(p.x * width)
+    const y = Math.round(p.y * height)
+    minX = Math.min(minX, x)
+    maxX = Math.max(maxX, x)
+    minY = Math.min(minY, y)
+    maxY = Math.max(maxY, y)
+  }
+  const pad = 4
+  return {
+    minX: Math.max(0, minX - pad),
+    maxX: Math.min(width - 1, maxX + pad),
+    minY: Math.max(0, minY - pad),
+    maxY: Math.min(height - 1, maxY + pad),
   }
 }
 
 function lipGlossMask(
   landmarks: FaceLandmarkPoint[],
+  lipMask: HTMLCanvasElement,
   width: number,
   height: number,
   minSide: number,
@@ -196,20 +285,23 @@ function lipGlossMask(
     sy += p.y
   }
   const cx = (sx / pts.length) * width
-  const cy = (sy / pts.length) * height - minSide * 0.004
-  const rx = minSide * 0.055
-  const ry = minSide * 0.012
+  const cy = (sy / pts.length) * height - minSide * 0.003
+  const rx = minSide * 0.048
+  const ry = minSide * 0.01
   const mask = createCanvas(width, height)
   const mctx = mask.getContext('2d')!
   const g = mctx.createRadialGradient(cx, cy, 0, cx, cy, rx)
   g.addColorStop(0, 'rgba(255,255,255,0.95)')
-  g.addColorStop(0.55, 'rgba(255,255,255,0.35)')
+  g.addColorStop(0.5, 'rgba(255,255,255,0.4)')
   g.addColorStop(1, 'rgba(255,255,255,0)')
   mctx.fillStyle = g
   mctx.beginPath()
   mctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2)
   mctx.fill()
-  return featherMask(mask, minSide * 0.01)
+  // Keep gloss only on painted lips.
+  mctx.globalCompositeOperation = 'destination-in'
+  mctx.drawImage(lipMask, 0, 0)
+  return featherMask(mask, minSide * 0.008)
 }
 
 function paintEyeLayers(
@@ -331,10 +423,10 @@ function softCircleMask(
   const cx = center.x * width
   const cy = center.y * height
   const r = Math.max(4, radiusNorm * Math.min(width, height))
-  const gradient = mctx.createRadialGradient(cx, cy, r * 0.08, cx, cy, r)
+  const gradient = mctx.createRadialGradient(cx, cy, 0, cx, cy, r)
   gradient.addColorStop(0, 'rgba(255,255,255,1)')
-  gradient.addColorStop(0.4, 'rgba(255,255,255,0.75)')
-  gradient.addColorStop(0.75, 'rgba(255,255,255,0.28)')
+  gradient.addColorStop(0.35, 'rgba(255,255,255,0.88)')
+  gradient.addColorStop(0.7, 'rgba(255,255,255,0.4)')
   gradient.addColorStop(1, 'rgba(255,255,255,0)')
   mctx.fillStyle = gradient
   mctx.beginPath()

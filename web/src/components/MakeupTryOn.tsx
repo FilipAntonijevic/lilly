@@ -50,6 +50,13 @@ interface ZoneLayerState {
 
 const HANDLE_HIT_PX = 16
 const DEFAULT_INTENSITY = 0
+/** When user picks a shade on a non-lip zone at 0%, turn makeup on at this level. */
+const SHADE_PICK_INTENSITY = 0.7
+
+function ensurePaintIntensity(current: number, zoneId: FaceZoneId): number {
+  if (zoneId === 'lips') return 1
+  return current > 0.01 ? current : SHADE_PICK_INTENSITY
+}
 
 function initialZoneLayers(routine: FaceZoneMatch[]): Record<FaceZoneId, ZoneLayerState> {
   const layers = {} as Record<FaceZoneId, ZoneLayerState>
@@ -312,12 +319,11 @@ export function MakeupTryOn({
   const lipsOn = (layers.lips?.intensity ?? 0) > 0.5
 
   function pickProductLine(product: MakeupProduct) {
-    // Lipstick is on/off — picking a shade puts it on at full coverage.
-    if (activeZone === 'lips') {
-      updateActiveLayer({ product, lineProduct: product, intensity: 1 })
-    } else {
-      updateActiveLayer({ product, lineProduct: product })
-    }
+    updateActiveLayer({
+      product,
+      lineProduct: product,
+      intensity: ensurePaintIntensity(activeLayer.intensity, activeZone),
+    })
     setPickerOpen(false)
   }
 
@@ -376,11 +382,10 @@ export function MakeupTryOn({
             catalog={catalog}
             selected={activeLayer.product}
             onSelectedChange={(product) => {
-              if (activeZone === 'lips') {
-                updateActiveLayer({ product, intensity: 1 })
-              } else {
-                updateActiveLayer({ product })
-              }
+              updateActiveLayer({
+                product,
+                intensity: ensurePaintIntensity(activeLayer.intensity, activeZone),
+              })
             }}
           />
         ) : (

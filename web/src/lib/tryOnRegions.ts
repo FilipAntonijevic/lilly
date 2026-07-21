@@ -69,18 +69,18 @@ const CIRCLE_CENTER_INDEX: Partial<Record<TryOnPolygonId, number>> = {
 export const TRYON_BLEND: Record<FaceZoneId, GlobalCompositeOperation> = {
   faceBase: 'soft-light',
   underEye: 'soft-light',
-  cheeks: 'soft-light',
+  cheeks: 'overlay',
   contour: 'multiply',
-  lips: 'soft-light',
+  lips: 'color',
   eyes: 'soft-light',
 }
 
 export const TRYON_BASE_ALPHA: Record<FaceZoneId, number> = {
-  faceBase: 0.38,
-  underEye: 0.48,
-  cheeks: 0.58,
-  contour: 0.42,
-  lips: 0.9,
+  faceBase: 0.48,
+  underEye: 0.62,
+  cheeks: 0.7,
+  contour: 0.55,
+  lips: 0.95,
   eyes: 0.72,
 }
 
