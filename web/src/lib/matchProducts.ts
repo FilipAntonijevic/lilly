@@ -15,9 +15,9 @@ import { lipstickTheoryBonus } from './lipstickTheory'
  * Used when catalog tags products (blush/lipstick/eyeshadow).
  */
 export const PALETTE_BY_UNDERTONE: Record<Undertone, string[]> = {
-  cool: ['rose', 'berry', 'mauve', 'plum', 'blue-red', 'taupe', 'silver', 'cool-pink'],
+  cool: ['berry', 'mauve', 'plum', 'blue-red', 'rose', 'taupe', 'wine', 'silver'],
   warm: ['peach', 'coral', 'terracotta', 'bronze', 'gold', 'copper', 'brick', 'warm-nude'],
-  neutral: ['nude', 'soft-pink', 'rose-brown', 'champagne', 'soft-berry', 'bronze'],
+  neutral: ['rose-brown', 'soft-berry', 'mauve', 'bronze', 'nude', 'champagne', 'wine'],
   olive: ['muted-rose', 'terracotta', 'olive', 'bronze', 'soft-berry', 'caramel'],
 }
 
@@ -88,7 +88,7 @@ function hairHarmony(product: MakeupProduct, skin: SkinProfile): number {
   }
   if (
     (family === 'blonde' || family === 'light_brown') &&
-    tags.some((t) => ['peach', 'soft-pink', 'nude', 'champagne'].includes(t))
+    tags.some((t) => ['peach', 'rose-brown', 'soft-berry', 'nude', 'champagne'].includes(t))
   ) {
     score += 0.1
   }
