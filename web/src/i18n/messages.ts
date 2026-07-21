@@ -3,7 +3,7 @@ export type Locale = 'sr' | 'en'
 const sr = {
   'landing.headline': 'Pronađi sminku koja odgovara tvom tonu.',
   'landing.lead':
-    'Uslikaj se ili otpremi selfie i dobij po jedan dm.rs proizvod za ten, ispod očiju, jagodice, konturu, usne i oči.',
+    'Uslikaj se ili otpremi selfie — odmah probaš preporučene dm.rs proizvode na svom licu (ten, ispod očiju, jagodice, kontura, usne, oči).',
   'landing.catalogCount': 'Katalog: {count} artikala sa dm.rs',
   'landing.takeSelfie': 'Uslikaj selfie',
   'landing.uploadSelfie': 'Otpremi iz galerije',
@@ -43,7 +43,7 @@ const sr = {
   'tryon.canvasLabel': 'Probaj šminku na licu',
   'tryon.eyebrow': 'Virtuelna proba',
   'tryon.title': 'Testiraj proizvode',
-  'tryon.back': 'Nazad na preporuke',
+  'tryon.back': 'Nova slika',
   'tryon.intensity': 'Intenzitet slojeva',
   'tryon.layers': '{pct}%',
   'tryon.editOn': 'Pomeranje tačaka',
@@ -227,7 +227,7 @@ const en: Record<MessageKey, string> = {
   'tryon.canvasLabel': 'Makeup try-on on your face',
   'tryon.eyebrow': 'Virtual try-on',
   'tryon.title': 'Try products',
-  'tryon.back': 'Back to recommendations',
+  'tryon.back': 'New photo',
   'tryon.intensity': 'Layer intensity',
   'tryon.layers': '{pct}%',
   'tryon.editOn': 'Move points',

@@ -153,7 +153,7 @@ export interface FaceZoneMatch {
   tip: string
 }
 
-export type AppPhase = 'idle' | 'camera' | 'analyzing' | 'results' | 'tryon'
+export type AppPhase = 'idle' | 'camera' | 'analyzing' | 'tryon'
 
 export interface CaptureBundle {
   main: HTMLCanvasElement

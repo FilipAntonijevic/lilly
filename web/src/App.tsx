@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { CameraStage } from './components/CameraStage'
 import { LanguageToggle } from './components/LanguageToggle'
-import { ResultsPanel } from './components/ResultsPanel'
 import { TryOnPanel } from './components/TryOnPanel'
 import { loadActiveCatalog } from './data/catalog'
 import { useLanguage } from './i18n/LanguageContext'
@@ -18,7 +17,7 @@ import type {
 } from './types'
 import './App.css'
 
-type HistoryPhase = 'idle' | 'camera' | 'results' | 'tryon'
+type HistoryPhase = 'idle' | 'camera' | 'tryon'
 
 function writeHistory(phase: HistoryPhase, mode: 'push' | 'replace') {
   const hash = phase === 'idle' ? '' : `#${phase}`
@@ -82,17 +81,15 @@ export default function App() {
     writeHistory('idle', 'replace')
 
     function onPopState(event: PopStateEvent) {
-      const next = (event.state?.phase as HistoryPhase | undefined) ?? 'idle'
+      const raw = event.state?.phase as string | undefined
+      // Legacy `#results` hashes map to try-on (results page removed).
+      const next = (raw === 'results' ? 'tryon' : raw) as HistoryPhase | undefined
       if (next === 'camera') {
         analysisIdRef.current += 1
         setProfile(null)
         setRoutine([])
         setPhotoUrl(null)
         setPhase('camera')
-        return
-      }
-      if (next === 'results') {
-        setPhase('results')
         return
       }
       if (next === 'tryon') {
@@ -151,10 +148,12 @@ export default function App() {
         const zones = buildFaceRoutine(active.products, skin)
         setProfile(skin)
         setRoutine(zones)
-        setPhase('results')
-        writeHistory('results', 'replace')
+        // Skip the old recommendations list — go straight to virtual try-on.
+        // Routine matches become the starting products for each face zone.
+        setPhase('tryon')
+        writeHistory('tryon', 'replace')
 
-        // Upload after results so it never delays the UI.
+        // Upload after UI so it never delays try-on.
         uploadCaptureBundle({
           mainDataUrl,
           calibrationFrames: bundle.calibrationFrames,
@@ -188,15 +187,6 @@ export default function App() {
     setPhotoUrl(null)
     setPhase('idle')
     writeHistory('idle', 'replace')
-  }
-
-  function openTryOn() {
-    setPhase('tryon')
-    writeHistory('tryon', 'push')
-  }
-
-  function backToResults() {
-    window.history.back()
   }
 
   return (
@@ -289,20 +279,6 @@ export default function App() {
         </section>
       )}
 
-      {phase === 'results' && photoUrl && profile && catalog && (
-        <>
-          <LanguageToggle className="lang-toggle-results" />
-          <ResultsPanel
-            photoUrl={photoUrl}
-            profile={profile}
-            routine={routine}
-            catalog={catalog.products}
-            onRetake={retake}
-            onTestProducts={openTryOn}
-          />
-        </>
-      )}
-
       {phase === 'tryon' && photoUrl && profile && catalog && (
         <>
           <LanguageToggle className="lang-toggle-results" />
@@ -311,7 +287,7 @@ export default function App() {
             landmarks={profile.landmarks}
             routine={routine}
             catalog={catalog.products}
-            onBack={backToResults}
+            onBack={retake}
           />
         </>
       )}
