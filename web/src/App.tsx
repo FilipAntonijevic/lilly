@@ -74,11 +74,12 @@ export default function App() {
   }, [])
 
   useEffect(() => {
-    function onPointerDown(event: PointerEvent) {
+    // Use click (not pointerdown) so scroll gestures don't vibrate.
+    function onClick(event: MouseEvent) {
       const target = event.target
       if (!(target instanceof Element)) return
       const control = target.closest(
-        'button, [role="button"], [role="tab"], [role="option"], [role="slider"], a.zone-product-card',
+        'button, [role="button"], [role="tab"], [role="option"], a.zone-product-card',
       )
       if (!(control instanceof HTMLElement)) return
       if (
@@ -90,8 +91,8 @@ export default function App() {
       if (control.getAttribute('aria-disabled') === 'true') return
       tickHaptic()
     }
-    document.addEventListener('pointerdown', onPointerDown, true)
-    return () => document.removeEventListener('pointerdown', onPointerDown, true)
+    document.addEventListener('click', onClick, true)
+    return () => document.removeEventListener('click', onClick, true)
   }, [])
 
   function resetToLanding() {
