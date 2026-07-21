@@ -1099,7 +1099,8 @@
   height: 1.85rem;
   display: flex;
   align-items: center;
-  touch-action: none;
+  /* Allow vertical page scroll; horizontal drag locks to intensity. */
+  touch-action: pan-y;
   cursor: pointer;
   user-select: none;
   -webkit-user-select: none;

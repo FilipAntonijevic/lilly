@@ -443,6 +443,17 @@ function clamp01(n: number): number {
   return Math.min(1, Math.max(0, n))
 }
 
+type IntensityGestureMode = 'pending' | 'horizontal' | 'vertical'
+
+interface IntensityGesture {
+  pointerId: number
+  startX: number
+  startY: number
+  mode: IntensityGestureMode
+}
+
+const AXIS_LOCK_PX = 8
+
 function IntensitySlider({
   value,
   disabled,
@@ -459,13 +470,13 @@ function IntensitySlider({
   onCommit: (next: number) => void
 }) {
   const trackRef = useRef<HTMLDivElement>(null)
-  const draggingRef = useRef(false)
+  const gestureRef = useRef<IntensityGesture | null>(null)
   const localRef = useRef(quantizeIntensity(value))
   const [localValue, setLocalValue] = useState(() => quantizeIntensity(value))
   const pct = Math.round(localValue * 100)
 
   useEffect(() => {
-    if (draggingRef.current) return
+    if (gestureRef.current?.mode === 'horizontal') return
     const q = quantizeIntensity(value)
     localRef.current = q
     setLocalValue(q)
@@ -488,10 +499,11 @@ function IntensitySlider({
     onLiveChange(next)
   }
 
-  function onPointerDown(event: ReactPointerEvent<HTMLDivElement>) {
-    if (disabled) return
-    event.preventDefault()
-    draggingRef.current = true
+  function beginHorizontal(
+    event: ReactPointerEvent<HTMLDivElement>,
+    gesture: IntensityGesture,
+  ) {
+    gesture.mode = 'horizontal'
     try {
       event.currentTarget.setPointerCapture(event.pointerId)
     } catch {
@@ -500,20 +512,61 @@ function IntensitySlider({
     applyClientX(event.clientX)
   }
 
+  function onPointerDown(event: ReactPointerEvent<HTMLDivElement>) {
+    if (disabled) return
+    // Do not preventDefault — vertical moves must be able to scroll the page.
+    gestureRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      mode: 'pending',
+    }
+  }
+
   function onPointerMove(event: ReactPointerEvent<HTMLDivElement>) {
-    if (!draggingRef.current || disabled) return
+    const gesture = gestureRef.current
+    if (!gesture || gesture.pointerId !== event.pointerId || disabled) return
+
+    const dx = event.clientX - gesture.startX
+    const dy = event.clientY - gesture.startY
+
+    if (gesture.mode === 'pending') {
+      if (Math.abs(dx) < AXIS_LOCK_PX && Math.abs(dy) < AXIS_LOCK_PX) return
+      if (Math.abs(dy) >= Math.abs(dx)) {
+        // Vertical intent — abandon slider so the page can scroll.
+        gesture.mode = 'vertical'
+        return
+      }
+      beginHorizontal(event, gesture)
+      event.preventDefault()
+      return
+    }
+
+    if (gesture.mode !== 'horizontal') return
     event.preventDefault()
     applyClientX(event.clientX)
   }
 
   function onPointerUp(event: ReactPointerEvent<HTMLDivElement>) {
-    if (!draggingRef.current) return
-    draggingRef.current = false
-    onCommit(localRef.current)
+    const gesture = gestureRef.current
+    if (!gesture || gesture.pointerId !== event.pointerId) return
+    gestureRef.current = null
+
+    if (gesture.mode === 'vertical') return
+
+    if (gesture.mode === 'pending') {
+      // Tap: jump to the pressed position, then commit.
+      applyClientX(event.clientX)
+    }
+
+    if (gesture.mode === 'horizontal' || gesture.mode === 'pending') {
+      onCommit(localRef.current)
+    }
+
     try {
       event.currentTarget.releasePointerCapture(event.pointerId)
     } catch {
-      /* already released */
+      /* already released / never captured */
     }
   }
 
