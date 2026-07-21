@@ -1353,14 +1353,31 @@
 
 .shade-dots {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: 0.55rem;
   padding: 0.15rem 0.1rem 0.25rem;
-  touch-action: none;
-  user-select: none;
+  min-width: 0;
 }
 
-.shade-dots.is-dragging {
+.shade-dots-row {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0.55rem;
+  padding: 0.05rem 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  touch-action: none;
+  user-select: none;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.shade-dots-row::-webkit-scrollbar {
+  display: none;
+}
+
+.shade-dots-row.is-dragging {
   cursor: grabbing;
 }
 
@@ -1389,8 +1406,8 @@
   cursor: grab;
 }
 
-.shade-dots.is-dragging .shade-dot-btn,
-.shade-dots.is-dragging .shade-dot-btn.is-selected {
+.shade-dots-row.is-dragging .shade-dot-btn,
+.shade-dots-row.is-dragging .shade-dot-btn.is-selected {
   cursor: grabbing;
 }
 
