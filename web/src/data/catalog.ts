@@ -1,5 +1,6 @@
 import type { MakeupProduct } from '../types'
 import { DEMO_CATALOG } from './demoCatalog'
+import { normalizeCatalog } from '../lib/normalizeCatalog'
 
 let cached: { products: MakeupProduct[]; usingDemo: boolean } | null = null
 let loading: Promise<{ products: MakeupProduct[]; usingDemo: boolean }> | null =
@@ -21,7 +22,7 @@ export async function loadActiveCatalog(): Promise<{
         const store = (mod.default ?? mod) as MakeupProduct[]
         cached =
           Array.isArray(store) && store.length > 0
-            ? { products: store, usingDemo: false }
+            ? { products: normalizeCatalog(store), usingDemo: false }
             : { products: DEMO_CATALOG, usingDemo: true }
       } catch {
         cached = { products: DEMO_CATALOG, usingDemo: true }

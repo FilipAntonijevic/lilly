@@ -47,11 +47,22 @@ const CATEGORY_KEYWORDS = {
     'makeup base',
   ],
   concealer: ['korektor', 'concealer', 'corrector'],
-  blush: ['rumenilo', 'blush', 'rouge'],
+  // Prefer product-type phrases; "blush" alone matches shade names like "Blushed Stardust".
+  blush: ['rumenilo', 'rouge'],
   bronzer: ['bronzer', 'kontur', 'contour', 'sculpt'],
   lipstick: ['karmin', 'ruž', 'lipstick', 'lip gloss', 'sjaj za usne', 'lip tint'],
-  eyeshadow: ['senka', 'eyeshadow', 'eyes shadow', 'paleta senki'],
+  eyeshadow: ['senka za oč', 'senka za oc', 'eyeshadow', 'eyes shadow', 'paleta senki', 'senka'],
 }
+
+/** Check more specific / conflicting categories before generic keyword hits. */
+const CATEGORY_INFER_ORDER = [
+  'eyeshadow',
+  'lipstick',
+  'concealer',
+  'bronzer',
+  'foundation',
+  'blush',
+]
 
 function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms))
@@ -85,7 +96,14 @@ async function fetchJson(url, attempt = 1) {
 
 function inferCategory(title, dmCategories, hint) {
   const hay = `${title} ${(dmCategories || []).join(' ')}`.toLowerCase()
-  for (const [cat, words] of Object.entries(CATEGORY_KEYWORDS)) {
+
+  // Word-boundary blush so "Blushed Stardust" eyeshadow is not classified as blush.
+  if (/(^|[^a-z])blush([^a-z]|$)/i.test(hay) && !/senka|eyeshadow|paleta senki/.test(hay)) {
+    return 'blush'
+  }
+
+  for (const cat of CATEGORY_INFER_ORDER) {
+    const words = CATEGORY_KEYWORDS[cat] || []
     if (words.some((w) => hay.includes(w))) return cat
   }
   return hint || null
