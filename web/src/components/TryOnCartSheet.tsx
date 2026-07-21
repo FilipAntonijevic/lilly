@@ -278,8 +278,8 @@ function CartSwipeItem({
 
     if (drag.mode !== 'horizontal') return
     event.preventDefault()
-    // Only swipe left (negative X); rubber-band slightly past 0 to the right.
-    setOffset(Math.min(12, Math.max(-180, dx)))
+    // Left only — can return toward 0, never past the default resting position.
+    setOffset(Math.min(0, Math.max(-200, dx)))
   }
 
   function onPointerUp(event: ReactPointerEvent<HTMLDivElement>) {
