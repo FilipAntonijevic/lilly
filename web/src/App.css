@@ -1441,7 +1441,16 @@
 .product-name {
   margin: 0;
   font-weight: 700;
+  font-size: 1rem;
   line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-word;
+  /* Fixed 2-line box so long titles shrink instead of stretching the card. */
+  height: calc(1rem * 1.3 * 2);
+  max-height: calc(1rem * 1.3 * 2);
 }
 
 .product-price {
@@ -1564,11 +1573,6 @@
   border-radius: 0;
   border: none;
   display: block;
-}
-
-.product-name {
-  margin: 0;
-  font-weight: 700;
 }
 
 .product-brand,

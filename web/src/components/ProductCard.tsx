@@ -8,6 +8,7 @@ import {
 } from 'react'
 import type { MakeupProduct } from '../types'
 import { useLanguage } from '../i18n/LanguageContext'
+import { fitFontToLineBox } from '../lib/fitTwoLineText'
 import { tickHaptic } from '../lib/haptics'
 import { findShadeVariants } from '../lib/shadeFamilies'
 
@@ -155,7 +156,7 @@ export function ProductCard({
         )}
       </div>
       <div className="match-meta">
-        <p className="product-name">{selected.name}</p>
+        <ProductName name={selected.name} />
         <p className="product-price">{priceLabel}</p>
       </div>
     </>
@@ -208,6 +209,30 @@ export function ProductCard({
         </div>
       )}
     </div>
+  )
+}
+
+function ProductName({ name }: { name: string }) {
+  const ref = useRef<HTMLParagraphElement>(null)
+
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+
+    function fit() {
+      fitFontToLineBox(el!, { maxPx: 16, minPx: 11 })
+    }
+
+    fit()
+    const ro = new ResizeObserver(fit)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [name])
+
+  return (
+    <p ref={ref} className="product-name">
+      {name}
+    </p>
   )
 }
 

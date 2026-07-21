@@ -6,6 +6,7 @@ import {
 } from 'react'
 import { useLanguage } from '../i18n/LanguageContext'
 import { buildDmCartUrl } from '../lib/dmCartUrl'
+import { fitFontToLineBox } from '../lib/fitTwoLineText'
 import { tickHaptic } from '../lib/haptics'
 import type { MakeupProduct } from '../types'
 
@@ -446,36 +447,7 @@ function CartProductName({ name }: { name: string }) {
   useEffect(() => {
     const el = ref.current
     if (!el) return
-
-    const styles = getComputedStyle(el)
-    const targetHeight =
-      parseFloat(styles.maxHeight) ||
-      parseFloat(styles.height) ||
-      el.clientHeight
-    if (!targetHeight) return
-
-    const maxPx = 13.75
-    const minPx = 10.5
-    let size = maxPx
-
-    // Measure as a normal block so scrollHeight reflects real wrap height.
-    el.style.setProperty('display', 'block')
-    el.style.setProperty('-webkit-line-clamp', 'unset')
-    el.style.setProperty('height', 'auto')
-    el.style.setProperty('max-height', 'none')
-    el.style.setProperty('overflow', 'visible')
-    el.style.fontSize = `${size}px`
-
-    while (size > minPx && el.scrollHeight > targetHeight + 0.5) {
-      size -= 0.25
-      el.style.fontSize = `${size}px`
-    }
-
-    el.style.removeProperty('display')
-    el.style.removeProperty('-webkit-line-clamp')
-    el.style.removeProperty('height')
-    el.style.removeProperty('max-height')
-    el.style.removeProperty('overflow')
+    fitFontToLineBox(el, { maxPx: 13.75, minPx: 10.5 })
   }, [name])
 
   return (
