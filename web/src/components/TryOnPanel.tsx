@@ -26,30 +26,30 @@ export function TryOnPanel({
 
   return (
     <section className="tryon-screen" aria-live="polite">
-      <header className="tryon-screen-top">
-        <button type="button" className="btn-secondary tryon-back" onClick={onBack}>
-          {t('tryon.back')}
-        </button>
-        <div className="tryon-screen-heading">
-          <p className="eyebrow">{t('tryon.eyebrow')}</p>
-          <h2>{t('tryon.title')}</h2>
-        </div>
-      </header>
-
       {canTryOn && landmarks ? (
         <MakeupTryOn
           photoUrl={photoUrl}
           landmarks={landmarks}
           routine={routine}
           catalog={catalog}
+          onBack={onBack}
         />
       ) : (
         <>
-          <img
-            src={photoUrl}
-            alt={t('results.photoAlt')}
-            className="results-photo"
-          />
+          <div className="tryon-fallback-stage">
+            <button
+              type="button"
+              className="tryon-back-overlay"
+              onClick={onBack}
+            >
+              {t('tryon.back')}
+            </button>
+            <img
+              src={photoUrl}
+              alt={t('results.photoAlt')}
+              className="results-photo"
+            />
+          </div>
           <p className="tryon-fallback">{t('tryon.unavailable')}</p>
         </>
       )}

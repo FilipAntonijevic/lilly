@@ -280,16 +280,13 @@ export default function App() {
       )}
 
       {phase === 'tryon' && photoUrl && profile && catalog && (
-        <>
-          <LanguageToggle className="lang-toggle-results" />
-          <TryOnPanel
-            photoUrl={photoUrl}
-            landmarks={profile.landmarks}
-            routine={routine}
-            catalog={catalog.products}
-            onBack={retake}
-          />
-        </>
+        <TryOnPanel
+          photoUrl={photoUrl}
+          landmarks={profile.landmarks}
+          routine={routine}
+          catalog={catalog.products}
+          onBack={retake}
+        />
       )}
     </div>
   )

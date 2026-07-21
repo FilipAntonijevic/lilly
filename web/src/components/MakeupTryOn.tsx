@@ -28,6 +28,7 @@ interface MakeupTryOnProps {
   landmarks: FaceLandmarkPoint[]
   routine: FaceZoneMatch[]
   catalog: MakeupProduct[]
+  onBack: () => void
 }
 
 interface ZoneLayerState {
@@ -72,6 +73,7 @@ export function MakeupTryOn({
   landmarks,
   routine,
   catalog,
+  onBack,
 }: MakeupTryOnProps) {
   const { t } = useLanguage()
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -233,6 +235,13 @@ export function MakeupTryOn({
             className="tryon-canvas"
             aria-label={t('tryon.canvasLabel')}
           />
+          <button
+            type="button"
+            className="tryon-back-overlay"
+            onClick={onBack}
+          >
+            {t('tryon.back')}
+          </button>
           <button
             type="button"
             className={`tryon-filters-toggle${filtersOn ? ' is-on' : ''}`}
