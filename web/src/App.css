@@ -506,15 +506,60 @@
   cursor: default;
 }
 
+.tryon-cart-list {
+  margin: 0 -0.15rem;
+  padding: 0 0.15rem 0.5rem;
+}
+
 .tryon-cart-item {
-  display: grid;
-  gap: 0.55rem;
-  padding: 0.65rem 0;
-  border-bottom: 1px solid var(--line);
+  position: relative;
+  overflow: hidden;
+  border-radius: 0.75rem;
+  margin: 0 0 0.45rem;
+  border-bottom: 0;
+  background: rgba(201, 90, 78, 0.92);
 }
 
 .tryon-cart-item:last-child {
-  border-bottom: 0;
+  margin-bottom: 0;
+}
+
+.tryon-cart-item.is-exiting {
+  pointer-events: none;
+}
+
+.tryon-cart-item-rail {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 0 1.1rem;
+  color: #fff8f3;
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  user-select: none;
+}
+
+.tryon-cart-item-swipe {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 0.55rem;
+  padding: 0.65rem 0.55rem;
+  background: var(--foam);
+  border: 1px solid var(--line);
+  border-radius: 0.75rem;
+  touch-action: pan-y;
+  transition: transform 0.2s ease;
+  will-change: transform;
+  user-select: none;
+}
+
+.tryon-cart-item-swipe.is-dragging {
+  transition: none;
 }
 
 .tryon-cart-item-main {
@@ -530,6 +575,7 @@
   object-fit: cover;
   border-radius: 0.55rem;
   background: rgba(26, 22, 20, 0.06);
+  pointer-events: none;
 }
 
 .tryon-cart-item-actions {
