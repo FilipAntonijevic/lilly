@@ -45,8 +45,8 @@ function initialZoneLayers(routine: FaceZoneMatch[]): Record<FaceZoneId, ZoneLay
   for (const zoneId of TRYON_ZONE_ORDER) {
     const match = routine.find((z) => z.zoneId === zoneId)?.match?.product ?? null
     layers[zoneId] = {
-      // Lips use on/off (not a slider) — start off; other zones start at 50%.
-      intensity: zoneId === 'lips' ? 0 : DEFAULT_INTENSITY,
+      // Lips use on/off (not a slider) — start on with the recommended shade.
+      intensity: zoneId === 'lips' ? 1 : DEFAULT_INTENSITY,
       product: match,
       lineProduct: match,
     }
