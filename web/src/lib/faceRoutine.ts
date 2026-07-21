@@ -13,6 +13,7 @@ import {
   resolveDepthFromItaAndFitzpatrick,
 } from './fitzpatrick'
 import { matchProducts } from './matchProducts'
+import { lipstickTheoryBonus } from './lipstickTheory'
 
 function regionLab(regions: FaceRegionSample[], id: FaceRegionSample['id']): LabColor | null {
   return regions.find((r) => r.id === id)?.lab ?? null
@@ -137,9 +138,17 @@ export function buildFaceRoutine(
     bronzer.reasons = ['reason.bronzer', ...bronzer.reasons.slice(0, 1)]
   }
 
-  const lipstick = bestInCategory(catalog, skin, 'lipstick')
+  const lipstick = bestInCategory(catalog, skin, 'lipstick', (product, base) => {
+    const { bonus } = lipstickTheoryBonus(product, skin)
+    return base + bonus
+  })
   if (lipstick) {
-    lipstick.reasons = ['reason.lipstick', ...lipstick.reasons.slice(0, 1)]
+    const { reasonKeys } = lipstickTheoryBonus(lipstick.product, skin)
+    lipstick.reasons = [
+      reasonKeys[0] ?? 'reason.lipstick',
+      'reason.lipstick',
+      ...lipstick.reasons.slice(0, 1),
+    ]
   }
 
   const eyeshadow = bestInCategory(catalog, skin, 'eyeshadow')

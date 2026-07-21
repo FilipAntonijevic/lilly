@@ -8,6 +8,7 @@ import type {
 } from '../types'
 import type { MessageKey } from '../i18n/messages'
 import { deltaE76, depthIndex, hexToLab } from './color'
+import { lipstickTheoryBonus } from './lipstickTheory'
 
 /**
  * Color-theory palette families by undertone.
@@ -128,6 +129,12 @@ function scoreProduct(product: MakeupProduct, skin: SkinProfile): ProductMatch {
       palette * COLOR_PRODUCT_WEIGHT.palette +
       depth * COLOR_PRODUCT_WEIGHT.depth +
       hair * COLOR_PRODUCT_WEIGHT.hair
+
+    if (product.category === 'lipstick') {
+      const lip = lipstickTheoryBonus(product, skin)
+      score += lip.bonus
+      reasons.push(...lip.reasonKeys)
+    }
 
     if (palette >= 0.5) reasons.push('reason.palette')
     if (hair >= 0.7) reasons.push('reason.hairHarmony')
