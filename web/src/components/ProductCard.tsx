@@ -45,6 +45,11 @@ interface ProductCardProps {
   /** Controlled selected shade; defaults to internal state from `product`. */
   selected?: MakeupProduct
   onSelectedChange?: (product: MakeupProduct) => void
+  /**
+   * When set, the product body opens this callback instead of the dm.rs URL
+   * (used on try-on to open the category product picker).
+   */
+  onProductClick?: () => void
 }
 
 export function ProductCard({
@@ -52,6 +57,7 @@ export function ProductCard({
   catalog,
   selected: selectedProp,
   onSelectedChange,
+  onProductClick,
 }: ProductCardProps) {
   const { locale, t } = useLanguage()
   const variants = useMemo(
@@ -207,7 +213,16 @@ export function ProductCard({
 
   return (
     <div className="product-card-wrap">
-      {href ? (
+      {onProductClick ? (
+        <button
+          type="button"
+          className="zone-product-card as-button"
+          onClick={onProductClick}
+          aria-label={t('tryon.pickTitle')}
+        >
+          {linkBody}
+        </button>
+      ) : href ? (
         <a
           className="zone-product-card"
           href={href}

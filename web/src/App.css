@@ -919,6 +919,15 @@
   border-color: rgba(201, 120, 104, 0.45);
 }
 
+.zone-product-card.as-button {
+  appearance: none;
+  width: 100%;
+  margin: 0;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
 .product-media {
   position: relative;
   width: 5.5rem;
