@@ -460,29 +460,34 @@
 }
 
 .tryon-zone-tabs {
-  display: flex;
-  flex-wrap: nowrap;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-rows: repeat(2, auto);
   gap: 0.4rem;
   margin-top: 0.9rem;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  padding-bottom: 0.15rem;
-  scrollbar-width: thin;
 }
 
 .tryon-zone-tab {
   appearance: none;
-  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 2.65rem;
+  box-sizing: border-box;
   border: 1px solid var(--line);
   background: rgba(255, 248, 243, 0.72);
   color: var(--ink-soft);
   font: inherit;
-  font-size: 0.84rem;
+  font-size: 0.82rem;
   font-weight: 600;
   letter-spacing: 0.01em;
-  padding: 0.55rem 0.85rem;
+  padding: 0.45rem 0.4rem;
   border-radius: 0.55rem;
-  white-space: nowrap;
+  text-align: center;
+  line-height: 1.15;
+  white-space: normal;
+  hyphens: auto;
   transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
 
