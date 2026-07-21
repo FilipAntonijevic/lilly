@@ -187,7 +187,7 @@ export type MessageKey = keyof typeof sr
 const en: Record<MessageKey, string> = {
   'landing.headline': 'Find makeup that matches your skin tone.',
   'landing.lead':
-    'Take or upload a selfie and get one dm.rs product each for base, under-eyes, cheeks, contour, lips, and eyes.',
+    'Take or upload a selfie — instantly try recommended dm.rs products on your face (base, under-eyes, cheeks, contour, lips, eyes).',
   'landing.catalogCount': 'Catalog: {count} products from dm.rs',
   'landing.takeSelfie': 'Take a selfie',
   'landing.uploadSelfie': 'Upload from gallery',
