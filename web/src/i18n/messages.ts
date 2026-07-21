@@ -78,6 +78,14 @@ const sr = {
   'tryon.region.jawRight': 'Desna kontura',
   'tryon.region.faceOval': 'Ten',
 
+  'tryon.addToCart': 'Dodaj u korpu',
+  'tryon.inCart': 'Već u korpi',
+  'tryon.cartTitle': 'Korpa',
+  'tryon.cartCount': 'Korpa · {count}',
+  'tryon.cartEmpty': 'Korpa je prazna.',
+  'tryon.cartRemove': 'Ukloni',
+  'tryon.cartOpenDm': 'Otvori na dm',
+
   'product.priceUnavailable': 'Cena nije dostupna',
   'product.shade': 'nijansa {name}',
   'product.shades': 'Dostupne nijanse',
@@ -261,6 +269,14 @@ const en: Record<MessageKey, string> = {
   'tryon.region.jawLeft': 'Left contour',
   'tryon.region.jawRight': 'Right contour',
   'tryon.region.faceOval': 'Base',
+
+  'tryon.addToCart': 'Add to cart',
+  'tryon.inCart': 'Already in cart',
+  'tryon.cartTitle': 'Cart',
+  'tryon.cartCount': 'Cart · {count}',
+  'tryon.cartEmpty': 'Your cart is empty.',
+  'tryon.cartRemove': 'Remove',
+  'tryon.cartOpenDm': 'Open on dm',
 
   'product.priceUnavailable': 'Price unavailable',
   'product.shade': 'shade {name}',

@@ -20,6 +20,7 @@ import type {
   MakeupProduct,
 } from '../types'
 import { ProductCard } from './ProductCard'
+import { TryOnCartSheet } from './TryOnCartSheet'
 import { TryOnProductPicker } from './TryOnProductPicker'
 
 interface MakeupTryOnProps {
@@ -53,6 +54,19 @@ function initialZoneLayers(routine: FaceZoneMatch[]): Record<FaceZoneId, ZoneLay
   return layers
 }
 
+/** Algorithm picks for each zone, unique by product id, zone order preserved. */
+function initialCartFromRoutine(routine: FaceZoneMatch[]): MakeupProduct[] {
+  const seen = new Set<string>()
+  const out: MakeupProduct[] = []
+  for (const zoneId of TRYON_ZONE_ORDER) {
+    const product = routine.find((z) => z.zoneId === zoneId)?.match?.product
+    if (!product || seen.has(product.id)) continue
+    seen.add(product.id)
+    out.push(product)
+  }
+  return out
+}
+
 export function MakeupTryOn({
   photoUrl,
   landmarks,
@@ -67,7 +81,11 @@ export function MakeupTryOn({
   const [layers, setLayers] = useState<Record<FaceZoneId, ZoneLayerState>>(() =>
     initialZoneLayers(routine),
   )
+  const [cart, setCart] = useState<MakeupProduct[]>(() =>
+    initialCartFromRoutine(routine),
+  )
   const [pickerOpen, setPickerOpen] = useState(false)
+  const [cartOpen, setCartOpen] = useState(false)
 
   const polygons = useMemo(() => buildTryOnPolygons(landmarks), [landmarks])
 
@@ -87,6 +105,7 @@ export function MakeupTryOn({
 
   useEffect(() => {
     setLayers(initialZoneLayers(routine))
+    setCart(initialCartFromRoutine(routine))
   }, [routine])
 
   useEffect(() => {
@@ -173,6 +192,10 @@ export function MakeupTryOn({
     activeLayer.lineProduct ?? activeLayer.product ?? recommended ?? null
   const isLipsZone = activeZone === 'lips'
   const lipsOn = (layers.lips?.intensity ?? 0) > 0.5
+  const currentProduct = activeLayer.product
+  const currentInCart = Boolean(
+    currentProduct && cart.some((p) => p.id === currentProduct.id),
+  )
 
   function pickProductLine(product: MakeupProduct) {
     updateActiveLayer({
@@ -187,107 +210,139 @@ export function MakeupTryOn({
     updateActiveLayer({ intensity: on ? 1 : 0 })
   }
 
+  function addCurrentToCart() {
+    if (!currentProduct) return
+    setCart((prev) => {
+      if (prev.some((p) => p.id === currentProduct.id)) return prev
+      return [...prev, currentProduct]
+    })
+  }
+
+  function removeFromCart(productId: string) {
+    setCart((prev) => prev.filter((p) => p.id !== productId))
+  }
+
   return (
     <div className="tryon">
-      <div className="tryon-stage">
-        <canvas
-          ref={canvasRef}
-          className="tryon-canvas"
-          aria-label={t('tryon.canvasLabel')}
-        />
-      </div>
-
-      <div
-        className="tryon-zone-tabs"
-        role="tablist"
-        aria-label={t('tryon.regions')}
-      >
-        {zoneTabs.map((tab) => {
-          const isActive = tab.zoneId === activeZone
-          const layer = layers[tab.zoneId]
-          const hasMakeup =
-            tab.zoneId === 'lips'
-              ? (layer?.intensity ?? 0) > 0.5
-              : (layer?.intensity ?? 0) > 0.01
-          return (
-            <button
-              key={tab.zoneId}
-              type="button"
-              role="tab"
-              aria-selected={isActive}
-              className={`tryon-zone-tab${isActive ? ' is-active' : ''}${hasMakeup ? ' is-applied' : ''}`}
-              onClick={() => {
-                setActiveZone(tab.zoneId)
-                setPickerOpen(false)
-              }}
-            >
-              {tab.label}
-            </button>
-          )
-        })}
-      </div>
-
-      <div className="tryon-zone-panel">
-        {cardProduct && activeLayer.product ? (
-          <ProductCard
-            product={cardProduct}
-            catalog={catalog}
-            selected={activeLayer.product}
-            onSelectedChange={(product) => {
-              updateActiveLayer({ product })
-            }}
-            onProductClick={() => setPickerOpen(true)}
+      <div className="tryon-main">
+        <div className="tryon-stage">
+          <canvas
+            ref={canvasRef}
+            className="tryon-canvas"
+            aria-label={t('tryon.canvasLabel')}
           />
-        ) : (
-          <p className="zone-empty">{t('results.emptyZone')}</p>
-        )}
+        </div>
 
-        {isLipsZone ? (
-          <div className="tryon-lips-toggle">
-            <span className="tryon-intensity-label">{t('tryon.lipsToggle')}</span>
-            <button
-              type="button"
-              className={`btn-lips-toggle${lipsOn ? ' is-on' : ''}`}
-              aria-pressed={lipsOn}
-              disabled={!activeLayer.product}
-              onClick={() => setLipsOn(!lipsOn)}
-            >
-              {lipsOn ? t('tryon.lipsOn') : t('tryon.lipsOff')}
-            </button>
-          </div>
-        ) : (
-          <label className="tryon-intensity" onWheel={onIntensityWheel}>
-            <span className="tryon-intensity-label">
-              {t('tryon.intensity')}
-              <strong>{t('tryon.layers', { pct: layersPct })}</strong>
-            </span>
-            <input
-              type="range"
-              min={0}
-              max={100}
-              step={1}
-              value={layersPct}
-              disabled={!activeLayer.product}
-              onInput={(e) =>
-                updateActiveLayer({
-                  intensity: Number((e.target as HTMLInputElement).value) / 100,
-                })
-              }
-              onChange={(e) =>
-                updateActiveLayer({ intensity: Number(e.target.value) / 100 })
-              }
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-valuenow={layersPct}
-              aria-label={t('tryon.intensity')}
+        <div
+          className="tryon-zone-tabs"
+          role="tablist"
+          aria-label={t('tryon.regions')}
+        >
+          {zoneTabs.map((tab) => {
+            const isActive = tab.zoneId === activeZone
+            const layer = layers[tab.zoneId]
+            const hasMakeup =
+              tab.zoneId === 'lips'
+                ? (layer?.intensity ?? 0) > 0.5
+                : (layer?.intensity ?? 0) > 0.01
+            return (
+              <button
+                key={tab.zoneId}
+                type="button"
+                role="tab"
+                aria-selected={isActive}
+                className={`tryon-zone-tab${isActive ? ' is-active' : ''}${hasMakeup ? ' is-applied' : ''}`}
+                onClick={() => {
+                  setActiveZone(tab.zoneId)
+                  setPickerOpen(false)
+                }}
+              >
+                {tab.label}
+              </button>
+            )
+          })}
+        </div>
+
+        <div className="tryon-zone-panel">
+          {cardProduct && activeLayer.product ? (
+            <ProductCard
+              product={cardProduct}
+              catalog={catalog}
+              selected={activeLayer.product}
+              onSelectedChange={(product) => {
+                updateActiveLayer({ product })
+              }}
+              onProductClick={() => setPickerOpen(true)}
             />
-          </label>
-        )}
+          ) : (
+            <p className="zone-empty">{t('results.emptyZone')}</p>
+          )}
 
-        <p className="tryon-hint">
-          {isLipsZone ? t('tryon.hintLips') : t('tryon.hintView')}
-        </p>
+          {isLipsZone ? (
+            <div className="tryon-lips-toggle">
+              <span className="tryon-intensity-label">{t('tryon.lipsToggle')}</span>
+              <button
+                type="button"
+                className={`btn-lips-toggle${lipsOn ? ' is-on' : ''}`}
+                aria-pressed={lipsOn}
+                disabled={!activeLayer.product}
+                onClick={() => setLipsOn(!lipsOn)}
+              >
+                {lipsOn ? t('tryon.lipsOn') : t('tryon.lipsOff')}
+              </button>
+            </div>
+          ) : (
+            <label className="tryon-intensity" onWheel={onIntensityWheel}>
+              <span className="tryon-intensity-label">
+                {t('tryon.intensity')}
+                <strong>{t('tryon.layers', { pct: layersPct })}</strong>
+              </span>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                step={1}
+                value={layersPct}
+                disabled={!activeLayer.product}
+                onInput={(e) =>
+                  updateActiveLayer({
+                    intensity: Number((e.target as HTMLInputElement).value) / 100,
+                  })
+                }
+                onChange={(e) =>
+                  updateActiveLayer({ intensity: Number(e.target.value) / 100 })
+                }
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={layersPct}
+                aria-label={t('tryon.intensity')}
+              />
+            </label>
+          )}
+
+          <p className="tryon-hint">
+            {isLipsZone ? t('tryon.hintLips') : t('tryon.hintView')}
+          </p>
+        </div>
       </div>
+
+      <footer className="tryon-cart-bar">
+        <button
+          type="button"
+          className="tryon-cart-summary"
+          onClick={() => setCartOpen(true)}
+        >
+          {t('tryon.cartCount', { count: cart.length })}
+        </button>
+        <button
+          type="button"
+          className="btn-tryon-cart"
+          disabled={!currentProduct || currentInCart}
+          onClick={addCurrentToCart}
+        >
+          {currentInCart ? t('tryon.inCart') : t('tryon.addToCart')}
+        </button>
+      </footer>
 
       {pickerOpen && (
         <TryOnProductPicker
@@ -299,6 +354,14 @@ export function MakeupTryOn({
           }
           onPick={pickProductLine}
           onClose={() => setPickerOpen(false)}
+        />
+      )}
+
+      {cartOpen && (
+        <TryOnCartSheet
+          items={cart}
+          onRemove={removeFromCart}
+          onClose={() => setCartOpen(false)}
         />
       )}
     </div>
