@@ -51,19 +51,15 @@ export const TRYON_LABEL_BY_POLYGON: Record<TryOnPolygonId, MessageKey> = {
   faceOval: 'tryon.region.faceOval',
 }
 
-/** Soft circular brushes only — contour is a landmark polygon again. */
+/** Soft circular blush brushes only — under-eye is a landmark crescent again. */
 export const CIRCLE_REGIONS: ReadonlySet<TryOnPolygonId> = new Set([
   'leftCheek',
   'rightCheek',
-  'underEyeLeft',
-  'underEyeRight',
 ])
 
 const CIRCLE_CENTER_INDEX: Partial<Record<TryOnPolygonId, number>> = {
   leftCheek: 205,
   rightCheek: 425,
-  underEyeLeft: 111,
-  underEyeRight: 340,
 }
 
 export const TRYON_BLEND: Record<FaceZoneId, GlobalCompositeOperation> = {
@@ -76,9 +72,9 @@ export const TRYON_BLEND: Record<FaceZoneId, GlobalCompositeOperation> = {
 }
 
 export const TRYON_BASE_ALPHA: Record<FaceZoneId, number> = {
-  faceBase: 0.48,
-  underEye: 0.62,
-  cheeks: 0.7,
+  faceBase: 0.52,
+  underEye: 0.68,
+  cheeks: 0.78,
   contour: 0.55,
   lips: 0.95,
   eyes: 0.72,
@@ -104,17 +100,17 @@ export function buildTryOnPolygons(
       const centerIdx = CIRCLE_CENTER_INDEX[id]
       const centerLm = centerIdx != null ? landmarks[centerIdx] : null
       if (!centerLm) continue
-      const radius = id.startsWith('underEye')
-        ? faceScale * 0.05
-        : faceScale * 0.085
+      // faceScale ≈ inter-ocular distance in norm space (~0.12–0.25).
+      // Blush apple needs ~0.4× that — older 0.085 made ~12px dots that never showed.
+      const radius = faceScale * 0.42
       const center = { x: clamp01(centerLm.x), y: clamp01(centerLm.y) }
       // Blush sits slightly toward the ear / temple on each cheek.
       if (id === 'leftCheek') {
-        center.x = clamp01(center.x - faceScale * 0.02)
-        center.y = clamp01(center.y + faceScale * 0.01)
+        center.x = clamp01(center.x - faceScale * 0.04)
+        center.y = clamp01(center.y + faceScale * 0.02)
       } else if (id === 'rightCheek') {
-        center.x = clamp01(center.x + faceScale * 0.02)
-        center.y = clamp01(center.y + faceScale * 0.01)
+        center.x = clamp01(center.x + faceScale * 0.04)
+        center.y = clamp01(center.y + faceScale * 0.02)
       }
       out.push({
         id,

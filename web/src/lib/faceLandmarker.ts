@@ -64,8 +64,8 @@ export type MakeupRegionKey = keyof typeof MAKEUP_REGIONS
 
 /**
  * Editable try-on shapes keyed for UI handles.
- * Contour / face / lips / eyes = MediaPipe landmark rings.
- * Cheeks & under-eye = soft circular brushes (built in tryOnRegions).
+ * Contour / face / lips / eyes / under-eye = MediaPipe landmark rings.
+ * Cheeks = soft circular blush brushes (built in tryOnRegions).
  */
 export const TRYON_POLYGON_INDICES = {
   leftEye: [247, 30, 29, 27, 28, 56, 190, 173, 157, 158, 159, 160, 161, 246],
@@ -74,10 +74,21 @@ export const TRYON_POLYGON_INDICES = {
     61, 185, 40, 39, 37, 0, 267, 269, 270, 409, 291, 375, 321, 405, 314, 17, 84,
     181, 91, 146,
   ],
+  /** Cheek apple centers — circle brushes built in tryOnRegions */
   leftCheek: [205],
   rightCheek: [425],
-  underEyeLeft: [111],
-  underEyeRight: [340],
+  /**
+   * Tear-trough crescents: lower lash line → infraorbital cheek → back.
+   * (Not tiny cheek dots — those never covered the under-eye.)
+   */
+  underEyeLeft: [
+    33, 7, 163, 144, 145, 153, 154, 155, 133, 50, 101, 100, 120, 119, 118, 117,
+    111,
+  ],
+  underEyeRight: [
+    263, 249, 390, 373, 374, 380, 381, 382, 362, 280, 330, 329, 349, 348, 347,
+    346, 340,
+  ],
   /** Cheek hollow + jaw strip (industry contour / bronzer) */
   jawLeft: [
     234, 93, 132, 58, 172, 136, 150, 135, 214, 192, 213, 147, 123, 116, 143,

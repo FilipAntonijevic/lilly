@@ -60,13 +60,12 @@ export function paintSoftMakeup(options: {
   paintZoneIfActive(layers, 'faceBase', (alpha) => {
     const poly = polygons.find((p) => p.id === 'faceOval')
     if (!poly) return
-    const mask = featheredSmoothRing(poly.points, width, height, minSide * 0.055, {
-      radialCore: 0.35,
-    })
-    // Keep foundation off lips / sclera (Snap Face Mask opacity carve-outs).
-    punchOpeningsFromMask(mask, landmarks, width, height)
+    // Even face coverage; soft edge only — no radial “spotlight” fade.
+    const mask = featheredSmoothRing(poly.points, width, height, minSide * 0.022)
+    // Face − sclera − open mouth (inner lips). Keep vermilion for foundation blend.
+    punchScleraAndOpenMouth(mask, landmarks, width, height)
     paintColorThroughMask(ctx, mask, layers.faceBase.product!.shadeHex, alpha, 'soft-light')
-    paintColorThroughMask(ctx, mask, layers.faceBase.product!.shadeHex, alpha * 0.35, 'color')
+    paintColorThroughMask(ctx, mask, layers.faceBase.product!.shadeHex, alpha * 0.4, 'color')
   })
 
   paintZoneIfActive(layers, 'contour', (alpha) => {
@@ -88,17 +87,14 @@ export function paintSoftMakeup(options: {
   paintZoneIfActive(layers, 'underEye', (alpha) => {
     for (const id of ['underEyeLeft', 'underEyeRight'] as const) {
       const poly = polygons.find((p) => p.id === id)
-      if (!poly || poly.kind !== 'circle' || poly.points.length < 2) continue
-      const mask = softCircleMask(
-        poly.points[0]!,
-        circleRadius(poly),
-        width,
-        height,
-        minSide * 0.022,
-      )
-      // Concealer: lighten + unify tone while keeping skin grain.
+      if (!poly || poly.points.length < 3) continue
+      const mask = featheredSmoothRing(poly.points, width, height, minSide * 0.018)
+      // Punch sclera so concealer never paints the eye white.
+      const opening = id === 'underEyeLeft' ? LEFT_EYE_OPENING : RIGHT_EYE_OPENING
+      punchRingFromMask(mask, landmarks, opening, width, height, 0.006)
       paintColorThroughMask(ctx, mask, layers.underEye.product!.shadeHex, alpha, 'soft-light')
-      paintColorThroughMask(ctx, mask, layers.underEye.product!.shadeHex, alpha * 0.35, 'color')
+      paintColorThroughMask(ctx, mask, layers.underEye.product!.shadeHex, alpha * 0.45, 'color')
+      paintColorThroughMask(ctx, mask, layers.underEye.product!.shadeHex, alpha * 0.2, 'source-over')
     }
   })
 
@@ -111,10 +107,12 @@ export function paintSoftMakeup(options: {
         circleRadius(poly),
         width,
         height,
-        minSide * 0.035,
+        minSide * 0.028,
       )
       paintColorThroughMask(ctx, mask, layers.cheeks.product!.shadeHex, alpha, 'overlay')
       paintColorThroughMask(ctx, mask, layers.cheeks.product!.shadeHex, alpha * 0.55, 'soft-light')
+      // Pigment pass so blush reads even on muted catalog hexes.
+      paintColorThroughMask(ctx, mask, layers.cheeks.product!.shadeHex, alpha * 0.28, 'source-over')
     }
   })
 
@@ -447,8 +445,9 @@ function softCircleMask(
   const r = Math.max(4, radiusNorm * Math.min(width, height))
   const gradient = mctx.createRadialGradient(cx, cy, 0, cx, cy, r)
   gradient.addColorStop(0, 'rgba(255,255,255,1)')
-  gradient.addColorStop(0.35, 'rgba(255,255,255,0.88)')
-  gradient.addColorStop(0.7, 'rgba(255,255,255,0.4)')
+  gradient.addColorStop(0.25, 'rgba(255,255,255,0.95)')
+  gradient.addColorStop(0.55, 'rgba(255,255,255,0.55)')
+  gradient.addColorStop(0.82, 'rgba(255,255,255,0.18)')
   gradient.addColorStop(1, 'rgba(255,255,255,0)')
   mctx.fillStyle = gradient
   mctx.beginPath()
@@ -472,21 +471,33 @@ function punchSmoothRing(
   ctx.fill()
 }
 
-function punchOpeningsFromMask(
+/** Foundation carve-outs: sclera + open mouth cavity (not full lips). */
+function punchScleraAndOpenMouth(
   mask: HTMLCanvasElement,
   landmarks: FaceLandmarkPoint[],
   width: number,
   height: number,
+): void {
+  punchRingFromMask(mask, landmarks, LEFT_EYE_OPENING, width, height, 0.01)
+  punchRingFromMask(mask, landmarks, RIGHT_EYE_OPENING, width, height, 0.01)
+  // Inner mouth only — covers teeth/cavity when open; thin slit when closed.
+  punchRingFromMask(mask, landmarks, INNER_MOUTH, width, height, 0.004)
+}
+
+function punchRingFromMask(
+  mask: HTMLCanvasElement,
+  landmarks: FaceLandmarkPoint[],
+  indices: readonly number[],
+  width: number,
+  height: number,
+  expandNorm: number,
 ): void {
   const mctx = mask.getContext('2d')
   if (!mctx) return
   mctx.save()
   mctx.globalCompositeOperation = 'destination-out'
   mctx.fillStyle = '#fff'
-  // Slightly expanded so foundation doesn't kiss the vermilion / lash line.
-  punchSmoothRing(mctx, landmarks, LEFT_EYE_OPENING, width, height, 0.012)
-  punchSmoothRing(mctx, landmarks, RIGHT_EYE_OPENING, width, height, 0.012)
-  punchSmoothRing(mctx, landmarks, OUTER_LIPS, width, height, 0.01)
+  punchSmoothRing(mctx, landmarks, indices, width, height, expandNorm)
   mctx.restore()
 }
 
