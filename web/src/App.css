@@ -482,10 +482,8 @@
   gap: 0.55rem;
   margin-top: 1.25rem;
   padding: 0.85rem 0 calc(0.85rem + env(safe-area-inset-bottom, 0px));
-  /* Same wash as the page (fixed) so sticky bar never paints white. */
-  background-color: var(--page-base);
-  background: var(--page-bg);
-  background-attachment: fixed;
+  /* Solid beige — no wash/gradient behind the CTA. */
+  background: var(--page-base);
 }
 
 .tryon-cart-summary {
@@ -513,19 +511,21 @@
   padding: 0.9rem 1.25rem;
   border-radius: 0.9rem;
   border: 0;
-  background: var(--ink);
+  background-color: var(--ink);
+  background-image: none;
   color: var(--foam);
   font-family: var(--font-display);
   font-size: 1.05rem;
   font-weight: 700;
   letter-spacing: -0.02em;
   cursor: pointer;
-  transition: transform 0.15s ease, background 0.15s ease, opacity 0.15s ease;
+  transition: transform 0.15s ease, background-color 0.15s ease, opacity 0.15s ease;
 }
 
 .btn-tryon-cart:hover:not(:disabled) {
   transform: translateY(-1px);
-  background: #2a2421;
+  background-color: #2a2421;
+  background-image: none;
 }
 
 .btn-tryon-cart:disabled {
