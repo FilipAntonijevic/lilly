@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useT, type MessageKey } from '../i18n/LanguageContext'
+import { cropCaptureToFaceGuide } from '../lib/cameraGuideCrop'
 import { preloadFaceLandmarker } from '../lib/faceLandmarker'
 import {
   FRAME_BUFFER_SIZE,
@@ -129,11 +130,12 @@ export function CameraStage({ onCapture, disabled }: CameraStageProps) {
     ctx.scale(-1, 1)
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
 
+    const main = cropCaptureToFaceGuide(video, canvas)
     const calibrationFrames = bufferRef.current.snapshot()
 
     setFlash(true)
     window.setTimeout(() => setFlash(false), 180)
-    onCapture({ main: canvas, calibrationFrames })
+    onCapture({ main, calibrationFrames })
   }
 
   const errorText =
