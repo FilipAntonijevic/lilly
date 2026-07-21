@@ -19,7 +19,9 @@ const sr = {
   'camera.denied':
     'Nije moguće pristupiti kameri. Dozvoli pristup u pregledaču i osveži stranicu.',
   'camera.preview': 'Pregled kamere',
-  'camera.guide': 'Look directly into a camera',
+  'camera.guideFace': 'Keep your face within the circle',
+  'camera.guideLook': 'Look directly into a camera',
+  'camera.guideLight': 'Use even light on your face',
   'camera.hintReady': 'Ravnomerno svetlo na licu (bez jake senke), pa uslikaj',
   'camera.hintStarting': 'Pokrećem kameru…',
   'camera.shutter': 'Uslikaj',
@@ -214,7 +216,9 @@ const en: Record<MessageKey, string> = {
   'camera.denied':
     'Could not access the camera. Allow permission in the browser and refresh.',
   'camera.preview': 'Camera preview',
-  'camera.guide': 'Look directly into a camera',
+  'camera.guideFace': 'Keep your face within the circle',
+  'camera.guideLook': 'Look directly into a camera',
+  'camera.guideLight': 'Use even light on your face',
   'camera.hintReady': 'Use even light on your face (no hard shadows), then shoot',
   'camera.hintStarting': 'Starting camera…',
   'camera.shutter': 'Take photo',

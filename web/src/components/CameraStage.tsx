@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { useT } from '../i18n/LanguageContext'
+import { useT, type MessageKey } from '../i18n/LanguageContext'
 import { preloadFaceLandmarker } from '../lib/faceLandmarker'
 import {
   FRAME_BUFFER_SIZE,
@@ -8,6 +8,14 @@ import {
   grabVideoFrame,
 } from '../lib/frameBuffer'
 import type { CaptureBundle } from '../types'
+
+const GUIDE_KEYS = [
+  'camera.guideFace',
+  'camera.guideLook',
+  'camera.guideLight',
+] as const satisfies readonly MessageKey[]
+
+const GUIDE_ROTATE_MS = 2000
 
 interface CameraStageProps {
   onCapture: (bundle: CaptureBundle) => void
@@ -23,6 +31,7 @@ export function CameraStage({ onCapture, disabled }: CameraStageProps) {
   const [error, setError] = useState<string | null>(null)
   const [ready, setReady] = useState(false)
   const [flash, setFlash] = useState(false)
+  const [guideIndex, setGuideIndex] = useState(0)
 
   useEffect(() => {
     preloadFaceLandmarker()
@@ -97,6 +106,15 @@ export function CameraStage({ onCapture, disabled }: CameraStageProps) {
     }
   }, [ready])
 
+  useEffect(() => {
+    if (!ready || error || disabled) return
+    setGuideIndex(0)
+    const timer = window.setInterval(() => {
+      setGuideIndex((index) => (index + 1) % GUIDE_KEYS.length)
+    }, GUIDE_ROTATE_MS)
+    return () => window.clearInterval(timer)
+  }, [ready, error, disabled])
+
   function handleCapture() {
     const video = videoRef.current
     if (!video || !ready || disabled) return
@@ -137,7 +155,9 @@ export function CameraStage({ onCapture, disabled }: CameraStageProps) {
       />
       <div className="camera-frame" aria-hidden="true" />
       {!error && ready && !disabled && (
-        <p className="camera-guide">{t('camera.guide')}</p>
+        <p key={guideIndex} className="camera-guide">
+          {t(GUIDE_KEYS[guideIndex])}
+        </p>
       )}
       {flash && <div className="camera-flash" aria-hidden="true" />}
 
