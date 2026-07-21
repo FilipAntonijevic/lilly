@@ -1,11 +1,16 @@
 import { useLanguage } from '../i18n/LanguageContext'
-import type { FaceLandmarkPoint, FaceZoneMatch } from '../types'
+import type {
+  FaceLandmarkPoint,
+  FaceZoneMatch,
+  MakeupProduct,
+} from '../types'
 import { MakeupTryOn } from './MakeupTryOn'
 
 interface TryOnPanelProps {
   photoUrl: string
   landmarks: FaceLandmarkPoint[] | undefined
   routine: FaceZoneMatch[]
+  catalog: MakeupProduct[]
   onBack: () => void
 }
 
@@ -13,6 +18,7 @@ export function TryOnPanel({
   photoUrl,
   landmarks,
   routine,
+  catalog,
   onBack,
 }: TryOnPanelProps) {
   const { t } = useLanguage()
@@ -35,6 +41,7 @@ export function TryOnPanel({
           photoUrl={photoUrl}
           landmarks={landmarks}
           routine={routine}
+          catalog={catalog}
         />
       ) : (
         <>

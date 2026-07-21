@@ -1,28 +1,38 @@
 import {
   useEffect,
+  useMemo,
   useRef,
   useState,
   type PointerEvent as ReactPointerEvent,
   type WheelEvent as ReactWheelEvent,
 } from 'react'
-import { useT } from '../i18n/LanguageContext'
+import { useLanguage } from '../i18n/LanguageContext'
+import { isMessageKey } from '../i18n/messages'
 import type { TryOnPolygonId } from '../lib/faceLandmarker'
 import {
   TRYON_BASE_ALPHA,
   TRYON_BLEND,
   TRYON_DRAW_ORDER,
+  TRYON_ZONE_ORDER,
   buildTryOnPolygons,
   clonePolygons,
-  shadeForZone,
+  polygonsForZone,
   type EditableTryOnPolygon,
   type Point2D,
 } from '../lib/tryOnRegions'
-import type { FaceLandmarkPoint, FaceZoneMatch } from '../types'
+import type {
+  FaceLandmarkPoint,
+  FaceZoneId,
+  FaceZoneMatch,
+  MakeupProduct,
+} from '../types'
+import { ProductCard } from './ProductCard'
 
 interface MakeupTryOnProps {
   photoUrl: string
   landmarks: FaceLandmarkPoint[]
   routine: FaceZoneMatch[]
+  catalog: MakeupProduct[]
 }
 
 interface DragState {
@@ -30,28 +40,75 @@ interface DragState {
   pointIndex: number
 }
 
-const HANDLE_HIT_PX = 16
+interface ZoneLayerState {
+  applied: boolean
+  intensity: number
+  product: MakeupProduct | null
+}
 
-export function MakeupTryOn({ photoUrl, landmarks, routine }: MakeupTryOnProps) {
-  const t = useT()
+const HANDLE_HIT_PX = 16
+const DEFAULT_INTENSITY = 0.55
+
+function initialZoneLayers(routine: FaceZoneMatch[]): Record<FaceZoneId, ZoneLayerState> {
+  const layers = {} as Record<FaceZoneId, ZoneLayerState>
+  for (const zoneId of TRYON_ZONE_ORDER) {
+    const match = routine.find((z) => z.zoneId === zoneId)?.match?.product ?? null
+    layers[zoneId] = {
+      applied: Boolean(match),
+      intensity: DEFAULT_INTENSITY,
+      product: match,
+    }
+  }
+  return layers
+}
+
+export function MakeupTryOn({
+  photoUrl,
+  landmarks,
+  routine,
+  catalog,
+}: MakeupTryOnProps) {
+  const { t } = useLanguage()
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const imageRef = useRef<HTMLImageElement | null>(null)
   const [imageReady, setImageReady] = useState(false)
   const [polygons, setPolygons] = useState<EditableTryOnPolygon[]>(() =>
     buildTryOnPolygons(landmarks),
   )
-  const [intensity, setIntensity] = useState(0.55)
-  const [editMode, setEditMode] = useState(true)
-  const [activeRegion, setActiveRegion] = useState<TryOnPolygonId>(
-    polygons[0]?.id ?? 'lips',
+  const [activeZone, setActiveZone] = useState<FaceZoneId>('eyes')
+  const [layers, setLayers] = useState<Record<FaceZoneId, ZoneLayerState>>(() =>
+    initialZoneLayers(routine),
   )
   const dragRef = useRef<DragState | null>(null)
+  const basePolygonsRef = useRef(polygons)
+
+  const zoneTabs = useMemo(() => {
+    return TRYON_ZONE_ORDER.map((zoneId) => {
+      const zone = routine.find((z) => z.zoneId === zoneId)
+      const label = zone?.zoneLabel
+      return {
+        zoneId,
+        label:
+          label && isMessageKey(label) ? t(label) : zoneId,
+      }
+    })
+  }, [routine, t])
+
+  const activeLayer = layers[activeZone]
+  const activePolygons = useMemo(
+    () => polygonsForZone(polygons, activeZone),
+    [polygons, activeZone],
+  )
 
   useEffect(() => {
     const next = buildTryOnPolygons(landmarks)
     setPolygons(next)
-    if (next.length) setActiveRegion(next[0].id)
+    basePolygonsRef.current = next
   }, [landmarks])
+
+  useEffect(() => {
+    setLayers(initialZoneLayers(routine))
+  }, [routine])
 
   useEffect(() => {
     const img = new Image()
@@ -102,12 +159,13 @@ export function MakeupTryOn({ photoUrl, landmarks, routine }: MakeupTryOnProps) 
     for (const id of TRYON_DRAW_ORDER) {
       const poly = byId.get(id)
       if (!poly || poly.points.length < 3) continue
-      const hex = shadeForZone(routine, poly.zoneId)
-      if (!hex) continue
+      const zoneLayer = layers[poly.zoneId]
+      if (!zoneLayer?.applied || !zoneLayer.product) continue
 
-      const alpha = TRYON_BASE_ALPHA[poly.zoneId] * intensity
+      const alpha = TRYON_BASE_ALPHA[poly.zoneId] * zoneLayer.intensity
       if (alpha <= 0.01) continue
 
+      const hex = zoneLayer.product.shadeHex
       lctx.save()
       lctx.globalCompositeOperation = TRYON_BLEND[poly.zoneId]
       lctx.globalAlpha = alpha
@@ -121,21 +179,15 @@ export function MakeupTryOn({ photoUrl, landmarks, routine }: MakeupTryOnProps) 
 
     ctx.drawImage(layer, 0, 0)
 
-    if (!editMode) return
-
-    for (const poly of polygons) {
-      const isActive = poly.id === activeRegion
+    for (const poly of activePolygons) {
       ctx.save()
-      ctx.strokeStyle = isActive
-        ? 'rgba(255, 248, 243, 0.95)'
-        : 'rgba(255, 248, 243, 0.28)'
-      ctx.lineWidth = isActive ? 2.5 : 1.25
-      ctx.setLineDash(isActive ? [] : [6, 5])
+      ctx.strokeStyle = 'rgba(255, 248, 243, 0.95)'
+      ctx.lineWidth = 2.5
+      ctx.setLineDash([])
       pathPolygon(ctx, poly.points, width, height)
       ctx.stroke()
       ctx.restore()
 
-      if (!isActive) continue
       for (const point of poly.points) {
         const px = point.x * width
         const py = point.y * height
@@ -149,7 +201,7 @@ export function MakeupTryOn({ photoUrl, landmarks, routine }: MakeupTryOnProps) 
         ctx.fill()
       }
     }
-  }, [imageReady, polygons, intensity, editMode, activeRegion, routine])
+  }, [imageReady, polygons, layers, activePolygons])
 
   function clientToNorm(clientX: number, clientY: number): Point2D | null {
     const canvas = canvasRef.current
@@ -169,25 +221,23 @@ export function MakeupTryOn({ photoUrl, landmarks, routine }: MakeupTryOnProps) 
     const hitNormX = HANDLE_HIT_PX / rect.width
     const hitNormY = HANDLE_HIT_PX / rect.height
 
-    const active = polygons.find((p) => p.id === activeRegion)
-    if (!active) return null
-
     let best: DragState | null = null
     let bestDist = Infinity
-    active.points.forEach((point, pointIndex) => {
-      const dx = (point.x - norm.x) / hitNormX
-      const dy = (point.y - norm.y) / hitNormY
-      const dist = dx * dx + dy * dy
-      if (dist <= 1 && dist < bestDist) {
-        bestDist = dist
-        best = { regionId: active.id, pointIndex }
-      }
-    })
+    for (const poly of activePolygons) {
+      poly.points.forEach((point, pointIndex) => {
+        const dx = (point.x - norm.x) / hitNormX
+        const dy = (point.y - norm.y) / hitNormY
+        const dist = dx * dx + dy * dy
+        if (dist <= 1 && dist < bestDist) {
+          bestDist = dist
+          best = { regionId: poly.id, pointIndex }
+        }
+      })
+    }
     return best
   }
 
   function onPointerDown(e: ReactPointerEvent<HTMLCanvasElement>) {
-    if (!editMode) return
     const norm = clientToNorm(e.clientX, e.clientY)
     if (!norm) return
     const hit = hitTest(norm)
@@ -221,17 +271,36 @@ export function MakeupTryOn({ photoUrl, landmarks, routine }: MakeupTryOnProps) 
     }
   }
 
-  function resetPolygons() {
-    setPolygons(buildTryOnPolygons(landmarks))
+  function resetActivePolygons() {
+    const base = basePolygonsRef.current
+    setPolygons((prev) => {
+      const next = clonePolygons(prev)
+      for (const poly of next) {
+        if (poly.zoneId !== activeZone) continue
+        const original = base.find((p) => p.id === poly.id)
+        if (original) poly.points = original.points.map((p) => ({ ...p }))
+      }
+      return next
+    })
+  }
+
+  function updateActiveLayer(patch: Partial<ZoneLayerState>) {
+    setLayers((prev) => ({
+      ...prev,
+      [activeZone]: { ...prev[activeZone], ...patch },
+    }))
   }
 
   function onIntensityWheel(e: ReactWheelEvent<HTMLLabelElement>) {
     e.preventDefault()
     const delta = e.deltaY > 0 ? -0.03 : 0.03
-    setIntensity((v) => clamp01(v + delta))
+    updateActiveLayer({
+      intensity: clamp01(activeLayer.intensity + delta),
+    })
   }
 
-  const layersPct = Math.round(intensity * 100)
+  const layersPct = Math.round(activeLayer.intensity * 100)
+  const recommended = routine.find((z) => z.zoneId === activeZone)?.match?.product
 
   return (
     <div className="tryon">
@@ -247,7 +316,60 @@ export function MakeupTryOn({ photoUrl, landmarks, routine }: MakeupTryOnProps) 
         />
       </div>
 
-      <div className="tryon-controls">
+      <div
+        className="tryon-zone-tabs"
+        role="tablist"
+        aria-label={t('tryon.regions')}
+      >
+        {zoneTabs.map((tab) => {
+          const isActive = tab.zoneId === activeZone
+          const isOn = layers[tab.zoneId]?.applied
+          return (
+            <button
+              key={tab.zoneId}
+              type="button"
+              role="tab"
+              aria-selected={isActive}
+              className={`tryon-zone-tab${isActive ? ' is-active' : ''}${isOn ? ' is-applied' : ''}`}
+              onClick={() => setActiveZone(tab.zoneId)}
+            >
+              {tab.label}
+            </button>
+          )
+        })}
+      </div>
+
+      <div className="tryon-zone-panel">
+        {recommended && activeLayer.product ? (
+          <ProductCard
+            product={recommended}
+            catalog={catalog}
+            selected={activeLayer.product}
+            onSelectedChange={(product) => updateActiveLayer({ product })}
+          />
+        ) : (
+          <p className="zone-empty">{t('results.emptyZone')}</p>
+        )}
+
+        <div className="tryon-zone-actions">
+          <button
+            type="button"
+            className={`btn-tryon-apply${activeLayer.applied ? ' is-on' : ''}`}
+            aria-pressed={activeLayer.applied}
+            onClick={() => updateActiveLayer({ applied: !activeLayer.applied })}
+            disabled={!activeLayer.product}
+          >
+            {activeLayer.applied ? t('tryon.applyOn') : t('tryon.applyOff')}
+          </button>
+          <button
+            type="button"
+            className="tryon-chip"
+            onClick={resetActivePolygons}
+          >
+            {t('tryon.reset')}
+          </button>
+        </div>
+
         <label className="tryon-intensity" onWheel={onIntensityWheel}>
           <span className="tryon-intensity-label">
             {t('tryon.intensity')}
@@ -259,7 +381,10 @@ export function MakeupTryOn({ photoUrl, landmarks, routine }: MakeupTryOnProps) 
             max={100}
             step={1}
             value={layersPct}
-            onChange={(e) => setIntensity(Number(e.target.value) / 100)}
+            disabled={!activeLayer.product}
+            onChange={(e) =>
+              updateActiveLayer({ intensity: Number(e.target.value) / 100 })
+            }
             aria-valuemin={0}
             aria-valuemax={100}
             aria-valuenow={layersPct}
@@ -267,44 +392,7 @@ export function MakeupTryOn({ photoUrl, landmarks, routine }: MakeupTryOnProps) 
           />
         </label>
 
-        <div className="tryon-toolbar">
-          <button
-            type="button"
-            className={`tryon-chip${editMode ? ' is-active' : ''}`}
-            onClick={() => setEditMode((v) => !v)}
-            aria-pressed={editMode}
-          >
-            {editMode ? t('tryon.editOn') : t('tryon.editOff')}
-          </button>
-          <button type="button" className="tryon-chip" onClick={resetPolygons}>
-            {t('tryon.reset')}
-          </button>
-        </div>
-
-        {editMode && (
-          <div
-            className="tryon-regions"
-            role="listbox"
-            aria-label={t('tryon.regions')}
-          >
-            {polygons.map((poly) => (
-              <button
-                key={poly.id}
-                type="button"
-                role="option"
-                aria-selected={poly.id === activeRegion}
-                className={`tryon-chip${poly.id === activeRegion ? ' is-active' : ''}`}
-                onClick={() => setActiveRegion(poly.id)}
-              >
-                {t(poly.labelKey)}
-              </button>
-            ))}
-          </div>
-        )}
-
-        <p className="tryon-hint">
-          {editMode ? t('tryon.hintEdit') : t('tryon.hintView')}
-        </p>
+        <p className="tryon-hint">{t('tryon.hintZone')}</p>
       </div>
     </div>
   )

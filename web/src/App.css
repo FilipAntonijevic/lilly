@@ -460,6 +460,83 @@
   margin-top: 0.9rem;
 }
 
+.tryon-zone-tabs {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0.4rem;
+  margin-top: 0.9rem;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 0.15rem;
+  scrollbar-width: thin;
+}
+
+.tryon-zone-tab {
+  appearance: none;
+  flex: 0 0 auto;
+  border: 1px solid var(--line);
+  background: rgba(255, 248, 243, 0.72);
+  color: var(--ink-soft);
+  font: inherit;
+  font-size: 0.84rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  padding: 0.55rem 0.85rem;
+  border-radius: 0.55rem;
+  white-space: nowrap;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.tryon-zone-tab.is-applied:not(.is-active) {
+  border-color: rgba(201, 120, 104, 0.55);
+}
+
+.tryon-zone-tab.is-active {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--foam);
+}
+
+.tryon-zone-panel {
+  display: grid;
+  gap: 0.85rem;
+  margin-top: 0.85rem;
+}
+
+.tryon-zone-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.btn-tryon-apply {
+  appearance: none;
+  flex: 1 1 10rem;
+  min-height: 2.85rem;
+  padding: 0.7rem 1.1rem;
+  border-radius: 0.7rem;
+  border: 1px solid var(--line);
+  background: rgba(255, 248, 243, 0.85);
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.btn-tryon-apply.is-on {
+  background: var(--blush-deep);
+  border-color: var(--blush-deep);
+  color: var(--foam);
+}
+
+.btn-tryon-apply:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .tryon-intensity {
   display: grid;
   gap: 0.45rem;

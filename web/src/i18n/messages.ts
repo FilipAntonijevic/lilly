@@ -53,6 +53,10 @@ const sr = {
   'tryon.hintEdit':
     'Izaberi zonu, pa pomeri tačke da poravnaš poligon. Scroll ili klizač menja intenzitet.',
   'tryon.hintView': 'Klizač ili scroll pojačava / smanjuje koliko je šminke naneseno.',
+  'tryon.hintZone':
+    'Izaberi oblast u redu iznad. Pomeri tačke, promeni nijansu, uključi Apply i podesi intenzitet — svaka zona pamti svoje.',
+  'tryon.applyOn': 'Apply uključeno',
+  'tryon.applyOff': 'Apply',
   'tryon.unavailable':
     'Virtuelna proba nije dostupna — lice nije detektovano dovoljno jasno.',
   'tryon.region.leftEye': 'Levo oko',
@@ -220,6 +224,10 @@ const en: Record<MessageKey, string> = {
   'tryon.hintEdit':
     'Pick a zone, then drag points to fit the polygon. Scroll or the slider sets intensity.',
   'tryon.hintView': 'Use the slider or scroll to strengthen or soften the makeup layers.',
+  'tryon.hintZone':
+    'Pick an area in the row above. Move points, change shade, toggle Apply, and set intensity — each zone keeps its own settings.',
+  'tryon.applyOn': 'Apply on',
+  'tryon.applyOff': 'Apply',
   'tryon.unavailable':
     'Virtual try-on unavailable — the face was not detected clearly enough.',
   'tryon.region.leftEye': 'Left eye',

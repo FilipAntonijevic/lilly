@@ -42,19 +42,28 @@ function optimizeImageUrl(url?: string): string | undefined {
 interface ProductCardProps {
   product: MakeupProduct
   catalog: MakeupProduct[]
+  /** Controlled selected shade; defaults to internal state from `product`. */
+  selected?: MakeupProduct
+  onSelectedChange?: (product: MakeupProduct) => void
 }
 
-export function ProductCard({ product, catalog }: ProductCardProps) {
+export function ProductCard({
+  product,
+  catalog,
+  selected: selectedProp,
+  onSelectedChange,
+}: ProductCardProps) {
   const { locale, t } = useLanguage()
   const variants = useMemo(
     () => findShadeVariants(product, catalog),
     [product, catalog],
   )
-  const [selected, setSelected] = useState(product)
+  const [internalSelected, setInternalSelected] = useState(product)
+  const selected = selectedProp ?? internalSelected
   const [imgFailed, setImgFailed] = useState(false)
   const [dragging, setDragging] = useState(false)
   const draggingRef = useRef(false)
-  const selectedIdRef = useRef(product.id)
+  const selectedIdRef = useRef(selected.id)
   const dotsRef = useRef<HTMLDivElement>(null)
   const variantsById = useMemo(() => {
     const map = new Map<string, MakeupProduct>()
@@ -63,10 +72,15 @@ export function ProductCard({ product, catalog }: ProductCardProps) {
   }, [variants])
 
   useEffect(() => {
-    setSelected(product)
+    if (selectedProp) return
+    setInternalSelected(product)
     selectedIdRef.current = product.id
     setImgFailed(false)
-  }, [product.id])
+  }, [product.id, selectedProp])
+
+  useEffect(() => {
+    selectedIdRef.current = selected.id
+  }, [selected.id])
 
   useEffect(() => {
     setImgFailed(false)
@@ -75,7 +89,8 @@ export function ProductCard({ product, catalog }: ProductCardProps) {
   function selectShade(next: MakeupProduct, haptic: boolean) {
     if (next.id === selectedIdRef.current) return
     selectedIdRef.current = next.id
-    setSelected(next)
+    if (!selectedProp) setInternalSelected(next)
+    onSelectedChange?.(next)
     if (haptic) tickHaptic()
   }
 

@@ -110,6 +110,22 @@ export function shadeForZone(
   return routine.find((z) => z.zoneId === zoneId)?.match?.product.shadeHex ?? null
 }
 
+export const TRYON_ZONE_ORDER: FaceZoneId[] = [
+  'faceBase',
+  'underEye',
+  'cheeks',
+  'contour',
+  'lips',
+  'eyes',
+]
+
+export function polygonsForZone(
+  polygons: EditableTryOnPolygon[],
+  zoneId: FaceZoneId,
+): EditableTryOnPolygon[] {
+  return polygons.filter((p) => p.zoneId === zoneId)
+}
+
 export function clonePolygons(
   polygons: EditableTryOnPolygon[],
 ): EditableTryOnPolygon[] {
