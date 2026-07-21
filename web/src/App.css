@@ -837,6 +837,13 @@
   backdrop-filter: blur(4px);
 }
 
+/* Cart: dim only — no blur (keeps try-on sharp underneath). */
+.tryon-cart-backdrop {
+  background: rgba(26, 22, 20, 0.4);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
 .tryon-picker {
   width: min(100%, 560px);
   max-height: min(78vh, 640px);
@@ -850,21 +857,27 @@
   animation: rise 0.25s ease both;
 }
 
-.tryon-cart-sheet {
-  grid-template-rows: auto 1fr;
-  padding-top: 0.35rem;
-  will-change: transform;
-  transition: transform 0.22s ease;
-  touch-action: pan-y;
-  animation: rise 0.28s ease both;
+.tryon-picker.tryon-cart-sheet {
+  /* Win over .tryon-picker { animation: rise } */
+  animation: cart-sheet-rise 0.28s ease both;
+}
+
+@keyframes cart-sheet-rise {
+  from {
+    transform: translate3d(0, 100%, 0);
+  }
+  to {
+    transform: translate3d(0, 0, 0);
+  }
 }
 
 .tryon-cart-sheet.is-dragging {
   transition: none !important;
-  animation: none;
+  animation: none !important;
 }
 
 .tryon-cart-sheet.is-closing {
+  animation: none !important;
   transition: transform 0.22s ease;
   pointer-events: none;
 }
