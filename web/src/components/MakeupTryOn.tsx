@@ -308,10 +308,21 @@ export function MakeupTryOn({
     routine.find((z) => z.zoneId === activeZone)?.category ?? 'lipstick'
   const cardProduct =
     activeLayer.lineProduct ?? activeLayer.product ?? recommended ?? null
+  const isLipsZone = activeZone === 'lips'
+  const lipsOn = (layers.lips?.intensity ?? 0) > 0.5
 
   function pickProductLine(product: MakeupProduct) {
-    updateActiveLayer({ product, lineProduct: product })
+    // Lipstick is on/off — picking a shade puts it on at full coverage.
+    if (activeZone === 'lips') {
+      updateActiveLayer({ product, lineProduct: product, intensity: 1 })
+    } else {
+      updateActiveLayer({ product, lineProduct: product })
+    }
     setPickerOpen(false)
+  }
+
+  function setLipsOn(on: boolean) {
+    updateActiveLayer({ intensity: on ? 1 : 0 })
   }
 
   return (
@@ -335,7 +346,11 @@ export function MakeupTryOn({
       >
         {zoneTabs.map((tab) => {
           const isActive = tab.zoneId === activeZone
-          const hasMakeup = (layers[tab.zoneId]?.intensity ?? 0) > 0.01
+          const layer = layers[tab.zoneId]
+          const hasMakeup =
+            tab.zoneId === 'lips'
+              ? (layer?.intensity ?? 0) > 0.5
+              : (layer?.intensity ?? 0) > 0.01
           return (
             <button
               key={tab.zoneId}
@@ -360,7 +375,13 @@ export function MakeupTryOn({
             product={cardProduct}
             catalog={catalog}
             selected={activeLayer.product}
-            onSelectedChange={(product) => updateActiveLayer({ product })}
+            onSelectedChange={(product) => {
+              if (activeZone === 'lips') {
+                updateActiveLayer({ product, intensity: 1 })
+              } else {
+                updateActiveLayer({ product })
+              }
+            }}
           />
         ) : (
           <p className="zone-empty">{t('results.emptyZone')}</p>
@@ -383,29 +404,46 @@ export function MakeupTryOn({
           </button>
         </div>
 
-        <label className="tryon-intensity" onWheel={onIntensityWheel}>
-          <span className="tryon-intensity-label">
-            {t('tryon.intensity')}
-            <strong>{t('tryon.layers', { pct: layersPct })}</strong>
-          </span>
-          <input
-            type="range"
-            min={0}
-            max={100}
-            step={1}
-            value={layersPct}
-            disabled={!activeLayer.product}
-            onChange={(e) =>
-              updateActiveLayer({ intensity: Number(e.target.value) / 100 })
-            }
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-valuenow={layersPct}
-            aria-label={t('tryon.intensity')}
-          />
-        </label>
+        {isLipsZone ? (
+          <div className="tryon-lips-toggle">
+            <span className="tryon-intensity-label">{t('tryon.lipsToggle')}</span>
+            <button
+              type="button"
+              className={`btn-lips-toggle${lipsOn ? ' is-on' : ''}`}
+              aria-pressed={lipsOn}
+              disabled={!activeLayer.product}
+              onClick={() => setLipsOn(!lipsOn)}
+            >
+              {lipsOn ? t('tryon.lipsOn') : t('tryon.lipsOff')}
+            </button>
+          </div>
+        ) : (
+          <label className="tryon-intensity" onWheel={onIntensityWheel}>
+            <span className="tryon-intensity-label">
+              {t('tryon.intensity')}
+              <strong>{t('tryon.layers', { pct: layersPct })}</strong>
+            </span>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              step={1}
+              value={layersPct}
+              disabled={!activeLayer.product}
+              onChange={(e) =>
+                updateActiveLayer({ intensity: Number(e.target.value) / 100 })
+              }
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={layersPct}
+              aria-label={t('tryon.intensity')}
+            />
+          </label>
+        )}
 
-        <p className="tryon-hint">{t('tryon.hintZone')}</p>
+        <p className="tryon-hint">
+          {isLipsZone ? t('tryon.hintLips') : t('tryon.hintZone')}
+        </p>
       </div>
 
       {pickerOpen && (

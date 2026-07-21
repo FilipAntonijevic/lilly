@@ -529,6 +529,38 @@
   background: #2a2421;
 }
 
+.tryon-lips-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.btn-lips-toggle {
+  appearance: none;
+  min-width: 7.5rem;
+  min-height: 2.6rem;
+  padding: 0.55rem 1rem;
+  border-radius: 0.65rem;
+  border: 1px solid var(--line);
+  background: rgba(255, 248, 243, 0.85);
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.btn-lips-toggle.is-on {
+  background: var(--blush-deep);
+  border-color: var(--blush-deep);
+  color: var(--foam);
+}
+
+.btn-lips-toggle:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .tryon-picker-backdrop {
   position: fixed;
   inset: 0;

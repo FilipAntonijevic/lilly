@@ -55,6 +55,11 @@ const sr = {
   'tryon.pickClose': 'Zatvori',
   'tryon.pickSearch': 'Pretraži brend ili naziv…',
   'tryon.pickEmpty': 'Nema proizvoda za ovu pretragu.',
+  'tryon.lipsToggle': 'Karmin',
+  'tryon.lipsOn': 'Uključen',
+  'tryon.lipsOff': 'Isključen',
+  'tryon.hintLips':
+    'Karmin je uključeno / isključeno — bez klizača intenziteta. Izaberi nijansu ili proizvod, pa uključi.',
   'tryon.hintEdit':
     'Izaberi zonu, pa pomeri tačke da poravnaš poligon. Scroll ili klizač menja intenzitet.',
   'tryon.hintView': 'Klizač ili scroll pojačava / smanjuje koliko je šminke naneseno.',
@@ -234,6 +239,11 @@ const en: Record<MessageKey, string> = {
   'tryon.pickClose': 'Close',
   'tryon.pickSearch': 'Search brand or name…',
   'tryon.pickEmpty': 'No products match this search.',
+  'tryon.lipsToggle': 'Lipstick',
+  'tryon.lipsOn': 'On',
+  'tryon.lipsOff': 'Off',
+  'tryon.hintLips':
+    'Lipstick is on/off — no intensity slider. Pick a shade or product, then turn it on.',
   'tryon.hintEdit':
     'Pick a zone, then drag points to fit the polygon. Scroll or the slider sets intensity.',
   'tryon.hintView': 'Use the slider or scroll to strengthen or soften the makeup layers.',

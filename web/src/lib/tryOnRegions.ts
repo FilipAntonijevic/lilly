@@ -80,7 +80,7 @@ export const TRYON_BASE_ALPHA: Record<FaceZoneId, number> = {
   underEye: 0.5,
   cheeks: 0.62,
   contour: 0.45,
-  lips: 0.72,
+  lips: 0.88,
   eyes: 0.7,
 }
 
