@@ -510,33 +510,6 @@
   align-items: center;
 }
 
-.btn-tryon-apply {
-  appearance: none;
-  flex: 1 1 10rem;
-  min-height: 2.85rem;
-  padding: 0.7rem 1.1rem;
-  border-radius: 0.7rem;
-  border: 1px solid var(--line);
-  background: rgba(255, 248, 243, 0.85);
-  color: var(--ink);
-  font-family: var(--font-display);
-  font-size: 1rem;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
-}
-
-.btn-tryon-apply.is-on {
-  background: var(--blush-deep);
-  border-color: var(--blush-deep);
-  color: var(--foam);
-}
-
-.btn-tryon-apply:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-
 .tryon-intensity {
   display: grid;
   gap: 0.45rem;

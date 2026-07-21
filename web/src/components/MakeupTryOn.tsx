@@ -41,20 +41,18 @@ interface DragState {
 }
 
 interface ZoneLayerState {
-  applied: boolean
   intensity: number
   product: MakeupProduct | null
 }
 
 const HANDLE_HIT_PX = 16
-const DEFAULT_INTENSITY = 0.55
+const DEFAULT_INTENSITY = 0
 
 function initialZoneLayers(routine: FaceZoneMatch[]): Record<FaceZoneId, ZoneLayerState> {
   const layers = {} as Record<FaceZoneId, ZoneLayerState>
   for (const zoneId of TRYON_ZONE_ORDER) {
     const match = routine.find((z) => z.zoneId === zoneId)?.match?.product ?? null
     layers[zoneId] = {
-      applied: Boolean(match),
       intensity: DEFAULT_INTENSITY,
       product: match,
     }
@@ -160,7 +158,7 @@ export function MakeupTryOn({
       const poly = byId.get(id)
       if (!poly || poly.points.length < 3) continue
       const zoneLayer = layers[poly.zoneId]
-      if (!zoneLayer?.applied || !zoneLayer.product) continue
+      if (!zoneLayer?.product || zoneLayer.intensity <= 0.01) continue
 
       const alpha = TRYON_BASE_ALPHA[poly.zoneId] * zoneLayer.intensity
       if (alpha <= 0.01) continue
@@ -323,14 +321,14 @@ export function MakeupTryOn({
       >
         {zoneTabs.map((tab) => {
           const isActive = tab.zoneId === activeZone
-          const isOn = layers[tab.zoneId]?.applied
+          const hasMakeup = (layers[tab.zoneId]?.intensity ?? 0) > 0.01
           return (
             <button
               key={tab.zoneId}
               type="button"
               role="tab"
               aria-selected={isActive}
-              className={`tryon-zone-tab${isActive ? ' is-active' : ''}${isOn ? ' is-applied' : ''}`}
+              className={`tryon-zone-tab${isActive ? ' is-active' : ''}${hasMakeup ? ' is-applied' : ''}`}
               onClick={() => setActiveZone(tab.zoneId)}
             >
               {tab.label}
@@ -350,25 +348,6 @@ export function MakeupTryOn({
         ) : (
           <p className="zone-empty">{t('results.emptyZone')}</p>
         )}
-
-        <div className="tryon-zone-actions">
-          <button
-            type="button"
-            className={`btn-tryon-apply${activeLayer.applied ? ' is-on' : ''}`}
-            aria-pressed={activeLayer.applied}
-            onClick={() => updateActiveLayer({ applied: !activeLayer.applied })}
-            disabled={!activeLayer.product}
-          >
-            {activeLayer.applied ? t('tryon.applyOn') : t('tryon.applyOff')}
-          </button>
-          <button
-            type="button"
-            className="tryon-chip"
-            onClick={resetActivePolygons}
-          >
-            {t('tryon.reset')}
-          </button>
-        </div>
 
         <label className="tryon-intensity" onWheel={onIntensityWheel}>
           <span className="tryon-intensity-label">
@@ -391,6 +370,16 @@ export function MakeupTryOn({
             aria-label={t('tryon.intensity')}
           />
         </label>
+
+        <div className="tryon-zone-actions">
+          <button
+            type="button"
+            className="tryon-chip"
+            onClick={resetActivePolygons}
+          >
+            {t('tryon.reset')}
+          </button>
+        </div>
 
         <p className="tryon-hint">{t('tryon.hintZone')}</p>
       </div>
