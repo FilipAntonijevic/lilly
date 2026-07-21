@@ -78,16 +78,20 @@ export const TRYON_POLYGON_INDICES = {
   leftCheek: [205],
   rightCheek: [425],
   /**
-   * Tear-trough crescents: lower lash line → infraorbital cheek → back.
-   * (Not tiny cheek dots — those never covered the under-eye.)
+   * Tear-trough / dark-circle crescents (MediaPipe lower eyelid + infraorbital).
+   * Top edge = lower lash line; bottom = cheek band below the eye — like
+   * eyeshadow applied from underneath, not outer-corner dots.
+   * Indices: mesh “right eye” (33…) and “left eye” (263…).
    */
   underEyeLeft: [
-    33, 7, 163, 144, 145, 153, 154, 155, 133, 50, 101, 100, 120, 119, 118, 117,
-    111,
+    // lower lid outer → inner
+    33, 7, 163, 144, 145, 153, 154, 155, 133,
+    // infraorbital inner → outer (tfjs rightEyeLower3, reversed)
+    245, 128, 121, 120, 119, 118, 117, 111, 143,
   ],
   underEyeRight: [
-    263, 249, 390, 373, 374, 380, 381, 382, 362, 280, 330, 329, 349, 348, 347,
-    346, 340,
+    263, 249, 390, 373, 374, 380, 381, 382, 362,
+    465, 357, 350, 349, 348, 347, 346, 340, 372,
   ],
   /** Cheek hollow + jaw strip (industry contour / bronzer) */
   jawLeft: [

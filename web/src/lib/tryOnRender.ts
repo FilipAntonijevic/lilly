@@ -1,6 +1,10 @@
 import type { FaceLandmarkPoint, FaceZoneId, MakeupProduct } from '../types'
 import type { EditableTryOnPolygon, Point2D } from './tryOnRegions'
-import { TRYON_BASE_ALPHA } from './tryOnRegions'
+import {
+  LIPS_OUTLINE_SCALE,
+  TRYON_BASE_ALPHA,
+  expandPolygonFromCentroid,
+} from './tryOnRegions'
 
 /**
  * Production-oriented makeup compositing (ModiFace / Snap Lens Studio patterns):
@@ -37,6 +41,12 @@ const LEFT_OUTER = [33, 246, 161, 160, 159, 247, 30, 29, 27, 130, 25, 110, 24] a
 const RIGHT_LID = [467, 260, 259, 257, 258, 286, 414, 398, 384, 385, 386, 387, 388, 466] as const
 const RIGHT_CREASE = [342, 445, 444, 443, 442, 441, 413, 414, 286, 258, 257, 259, 260, 467] as const
 const RIGHT_OUTER = [263, 466, 388, 387, 386, 467, 260, 259, 257, 359, 255, 339, 254] as const
+
+/** Lower lash + infraorbital (tear trough) — mesh right / left eye. */
+const UNDER_EYE_LEFT_LID = [33, 7, 163, 144, 145, 153, 154, 155, 133] as const
+const UNDER_EYE_LEFT_INFRA = [143, 111, 117, 118, 119, 120, 121, 128, 245] as const
+const UNDER_EYE_RIGHT_LID = [263, 249, 390, 373, 374, 380, 381, 382, 362] as const
+const UNDER_EYE_RIGHT_INFRA = [372, 340, 346, 347, 348, 349, 350, 357, 465] as const
 
 /** Upper-lip gloss anchors (cupid’s bow / center). */
 const LIP_GLOSS = [0, 267, 37, 13] as const
@@ -85,17 +95,16 @@ export function paintSoftMakeup(options: {
   })
 
   paintZoneIfActive(layers, 'underEye', (alpha) => {
-    for (const id of ['underEyeLeft', 'underEyeRight'] as const) {
-      const poly = polygons.find((p) => p.id === id)
-      if (!poly || poly.points.length < 3) continue
-      const mask = featheredSmoothRing(poly.points, width, height, minSide * 0.018)
-      // Punch sclera so concealer never paints the eye white.
-      const opening = id === 'underEyeLeft' ? LEFT_EYE_OPENING : RIGHT_EYE_OPENING
-      punchRingFromMask(mask, landmarks, opening, width, height, 0.006)
-      paintColorThroughMask(ctx, mask, layers.underEye.product!.shadeHex, alpha, 'soft-light')
-      paintColorThroughMask(ctx, mask, layers.underEye.product!.shadeHex, alpha * 0.45, 'color')
-      paintColorThroughMask(ctx, mask, layers.underEye.product!.shadeHex, alpha * 0.2, 'source-over')
-    }
+    paintUnderEyeConcealer(
+      ctx,
+      landmarks,
+      polygons,
+      width,
+      height,
+      layers.underEye.product!.shadeHex,
+      alpha,
+      minSide,
+    )
   })
 
   paintZoneIfActive(layers, 'cheeks', (alpha) => {
@@ -143,6 +152,88 @@ function paintZoneIfActive(
   }
 }
 
+function paintUnderEyeConcealer(
+  ctx: CanvasRenderingContext2D,
+  landmarks: FaceLandmarkPoint[],
+  polygons: EditableTryOnPolygon[],
+  width: number,
+  height: number,
+  hex: string,
+  alpha: number,
+  minSide: number,
+): void {
+  const sides = [
+    {
+      id: 'underEyeLeft' as const,
+      lid: UNDER_EYE_LEFT_LID,
+      infra: UNDER_EYE_LEFT_INFRA,
+      opening: LEFT_EYE_OPENING,
+    },
+    {
+      id: 'underEyeRight' as const,
+      lid: UNDER_EYE_RIGHT_LID,
+      infra: UNDER_EYE_RIGHT_INFRA,
+      opening: RIGHT_EYE_OPENING,
+    },
+  ]
+
+  for (const side of sides) {
+    const editable = polygons.find((p) => p.id === side.id)
+    const ring =
+      editable && editable.points.length >= 3
+        ? editable.points
+        : buildUnderEyeCrescent(landmarks, side.lid, side.infra)
+    if (ring.length < 3) continue
+
+    const mask = createCanvas(width, height)
+    const mctx = mask.getContext('2d')
+    if (!mctx) continue
+
+    mctx.fillStyle = '#fff'
+    pathSmoothRing(mctx, ring, width, height)
+    mctx.fill()
+
+    // Fade toward the cheek so it reads like soft concealer, not a hard stamp.
+    const { cx, cy, radius } = boundsOf(ring, width, height)
+    const fade = mctx.createRadialGradient(cx, cy - radius * 0.35, radius * 0.15, cx, cy, radius * 1.15)
+    fade.addColorStop(0, 'rgba(255,255,255,1)')
+    fade.addColorStop(0.45, 'rgba(255,255,255,0.85)')
+    fade.addColorStop(0.75, 'rgba(255,255,255,0.35)')
+    fade.addColorStop(1, 'rgba(255,255,255,0)')
+    mctx.globalCompositeOperation = 'destination-in'
+    mctx.fillStyle = fade
+    mctx.fillRect(0, 0, width, height)
+    mctx.globalCompositeOperation = 'source-over'
+
+    punchRingFromMask(mask, landmarks, side.opening, width, height, 0.008)
+    const soft = featherMask(mask, Math.max(2, minSide * 0.02))
+
+    paintColorThroughMask(ctx, soft, hex, alpha, 'soft-light')
+    paintColorThroughMask(ctx, soft, hex, alpha * 0.4, 'color')
+    paintColorThroughMask(ctx, soft, hex, alpha * 0.18, 'source-over')
+  }
+}
+
+/** Closed crescent: lower lid outer→inner, then infraorbital inner→outer. */
+function buildUnderEyeCrescent(
+  landmarks: FaceLandmarkPoint[],
+  lid: readonly number[],
+  infra: readonly number[],
+): Point2D[] {
+  const top = pointsFromIndices(landmarks, lid)
+  const bottom = pointsFromIndices(landmarks, [...infra].reverse())
+  if (top.length < 3 || bottom.length < 3) return [...top, ...bottom]
+  // Slightly deepen the cheek edge so concealer fills the tear trough.
+  let lidCy = 0
+  for (const p of top) lidCy += p.y
+  lidCy /= top.length
+  const deepened = bottom.map((p) => ({
+    x: p.x,
+    y: clamp01(p.y + Math.max(0, (p.y - lidCy) * 0.35 + 0.008)),
+  }))
+  return [...top, ...deepened]
+}
+
 function paintLips(
   ctx: CanvasRenderingContext2D,
   landmarks: FaceLandmarkPoint[],
@@ -156,11 +247,14 @@ function paintLips(
   const outer =
     editable && editable.length >= 3
       ? editable
-      : pointsFromIndices(landmarks, OUTER_LIPS)
+      : expandPolygonFromCentroid(
+          pointsFromIndices(landmarks, OUTER_LIPS),
+          LIPS_OUTLINE_SCALE,
+        )
   if (outer.length < 3) return
 
-  // Slight outward expand so coverage meets the vermilion border.
-  const widened = expandRing(outer, 0.004)
+  // Editable / built outline is already +5%; tiny normal expand for AA only.
+  const widened = expandRing(outer, 0.0015)
   const mask = createCanvas(width, height)
   const mctx = mask.getContext('2d')
   if (!mctx) return

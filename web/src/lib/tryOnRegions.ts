@@ -89,6 +89,9 @@ export const TRYON_ZONE_ORDER: FaceZoneId[] = [
   'eyes',
 ]
 
+/** Grow lip outline past vermilion so lipstick slightly overlaps skin (better than gaps). */
+export const LIPS_OUTLINE_SCALE = 1.05
+
 export function buildTryOnPolygons(
   landmarks: FaceLandmarkPoint[],
 ): EditableTryOnPolygon[] {
@@ -123,13 +126,19 @@ export function buildTryOnPolygons(
     }
 
     const indices = TRYON_POLYGON_INDICES[id]
-    const points: Point2D[] = []
+    let points: Point2D[] = []
     for (const index of indices) {
       const lm = landmarks[index]
       if (!lm) continue
       points.push({ x: clamp01(lm.x), y: clamp01(lm.y) })
     }
     if (points.length < 3) continue
+    if (id === 'lips') {
+      points = expandPolygonFromCentroid(points, LIPS_OUTLINE_SCALE)
+    }
+    if (id === 'underEyeLeft' || id === 'underEyeRight') {
+      points = deepenUnderEyeCrescent(points)
+    }
     out.push({
       id,
       zoneId: TRYON_ZONE_BY_POLYGON[id],
@@ -172,6 +181,42 @@ function estimateFaceScale(landmarks: FaceLandmarkPoint[]): number {
     return Math.max(0.08, Math.hypot(a.x - b.x, a.y - b.y))
   }
   return 0.12
+}
+
+/** Scale a closed ring from its centroid (e.g. 1.05 = +5% lip coverage). */
+export function expandPolygonFromCentroid(
+  points: Point2D[],
+  scale: number,
+): Point2D[] {
+  if (points.length < 3 || !(scale > 0)) return points.map((p) => ({ ...p }))
+  let sx = 0
+  let sy = 0
+  for (const p of points) {
+    sx += p.x
+    sy += p.y
+  }
+  const cx = sx / points.length
+  const cy = sy / points.length
+  return points.map((p) => ({
+    x: clamp01(cx + (p.x - cx) * scale),
+    y: clamp01(cy + (p.y - cy) * scale),
+  }))
+}
+
+/** Lower-lash (first 9) stays put; infraorbital edge drops slightly for tear-trough fill. */
+function deepenUnderEyeCrescent(points: Point2D[]): Point2D[] {
+  const lidCount = 9
+  if (points.length <= lidCount) return points.map((p) => ({ ...p }))
+  let lidCy = 0
+  for (let i = 0; i < lidCount; i++) lidCy += points[i]!.y
+  lidCy /= lidCount
+  return points.map((p, i) => {
+    if (i < lidCount) return { ...p }
+    return {
+      x: p.x,
+      y: clamp01(p.y + Math.max(0, (p.y - lidCy) * 0.35 + 0.008)),
+    }
+  })
 }
 
 function clamp01(n: number): number {
