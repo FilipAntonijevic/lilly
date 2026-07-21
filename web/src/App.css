@@ -464,12 +464,7 @@
   gap: 0.55rem;
   margin-top: 1.25rem;
   padding: 0.85rem 0 calc(0.85rem + env(safe-area-inset-bottom, 0px));
-  background: linear-gradient(
-    180deg,
-    rgba(255, 248, 243, 0) 0%,
-    rgba(255, 248, 243, 0.92) 28%,
-    rgba(255, 248, 243, 0.98) 100%
-  );
+  background: transparent;
 }
 
 .tryon-cart-summary {
