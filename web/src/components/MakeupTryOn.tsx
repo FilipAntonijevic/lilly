@@ -43,8 +43,8 @@ interface ZoneLayerState {
 }
 
 const DEFAULT_INTENSITY = 0.5
-/** Slider / paint updates snap to 5% so drag stays responsive. */
-const INTENSITY_STEP = 0.05
+/** Intensity slider steps in 1% increments. */
+const INTENSITY_STEP = 0.01
 
 function quantizeIntensity(n: number): number {
   return clamp01(Math.round(n / INTENSITY_STEP) * INTENSITY_STEP)
@@ -90,9 +90,6 @@ export function MakeupTryOn({
   const paintRafRef = useRef(0)
   const layersRef = useRef<Record<FaceZoneId, ZoneLayerState>>(
     initialZoneLayers(routine),
-  )
-  const intensityDragRef = useRef<{ zone: FaceZoneId; value: number } | null>(
-    null,
   )
   const [imageReady, setImageReady] = useState(false)
   const [activeZone, setActiveZone] = useState<FaceZoneId>('faceBase')
@@ -153,7 +150,6 @@ export function MakeupTryOn({
       ctx.drawImage(img, 0, 0, width, height)
 
       const current = layersRef.current
-      const drag = intensityDragRef.current
       // Always paint makeup onto the canvas. Filters off shows the original
       // photo overlay instantly — no need to wait for a clear/repaint.
       const paintLayers = {} as Record<
@@ -162,10 +158,8 @@ export function MakeupTryOn({
       >
       for (const zoneId of TRYON_ZONE_ORDER) {
         const layer = current[zoneId]
-        let intensity = layer?.intensity ?? 0
-        if (drag && drag.zone === zoneId) intensity = drag.value
         paintLayers[zoneId] = {
-          intensity,
+          intensity: layer?.intensity ?? 0,
           product: layer?.product ?? null,
         }
       }
@@ -228,16 +222,13 @@ export function MakeupTryOn({
     })
   }
 
+  /** Drag only moves the thumb/label — makeup paints on release. */
   function onIntensityLive(intensity: number) {
-    const next = quantizeIntensity(intensity)
-    intensityDragRef.current = { zone: activeZone, value: next }
-    setDragIntensityPct(Math.round(next * 100))
-    schedulePaint()
+    setDragIntensityPct(Math.round(quantizeIntensity(intensity) * 100))
   }
 
   function onIntensityCommit(intensity: number) {
     const next = quantizeIntensity(intensity)
-    intensityDragRef.current = null
     setDragIntensityPct(null)
     updateActiveLayer({ intensity: next })
   }
@@ -462,14 +453,13 @@ function IntensitySlider({
   value: number
   disabled?: boolean
   ariaLabel: string
-  /** Fired while dragging — keep this cheap (no heavy React state). */
+  /** Thumb/label only while dragging — do not paint makeup here. */
   onLiveChange: (next: number) => void
-  /** Fired on pointer-up / keyboard — commit into app state. */
+  /** Paint + commit on pointer-up / keyboard. */
   onCommit: (next: number) => void
 }) {
   const trackRef = useRef<HTMLDivElement>(null)
   const draggingRef = useRef(false)
-  const lastSentRef = useRef(quantizeIntensity(value))
   const localRef = useRef(quantizeIntensity(value))
   const [localValue, setLocalValue] = useState(() => quantizeIntensity(value))
   const pct = Math.round(localValue * 100)
@@ -478,7 +468,6 @@ function IntensitySlider({
     if (draggingRef.current) return
     const q = quantizeIntensity(value)
     localRef.current = q
-    lastSentRef.current = q
     setLocalValue(q)
   }, [value])
 
@@ -493,10 +482,9 @@ function IntensitySlider({
   function applyClientX(clientX: number) {
     const next = valueFromClientX(clientX)
     if (next == null) return
+    if (Math.abs(next - localRef.current) < 1e-6) return
     localRef.current = next
     setLocalValue(next)
-    if (Math.abs(next - lastSentRef.current) < 1e-6) return
-    lastSentRef.current = next
     onLiveChange(next)
   }
 
@@ -521,9 +509,7 @@ function IntensitySlider({
   function onPointerUp(event: ReactPointerEvent<HTMLDivElement>) {
     if (!draggingRef.current) return
     draggingRef.current = false
-    const finalValue = localRef.current
-    lastSentRef.current = finalValue
-    onCommit(finalValue)
+    onCommit(localRef.current)
     try {
       event.currentTarget.releasePointerCapture(event.pointerId)
     } catch {
