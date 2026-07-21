@@ -825,14 +825,17 @@
   will-change: transform;
   transition: transform 0.22s ease;
   touch-action: pan-y;
+  animation: rise 0.28s ease both;
 }
 
 .tryon-cart-sheet.is-dragging {
-  transition: none;
+  transition: none !important;
+  animation: none;
 }
 
 .tryon-cart-sheet.is-closing {
   transition: transform 0.22s ease;
+  pointer-events: none;
 }
 
 .tryon-sheet-grab {
@@ -841,7 +844,11 @@
   cursor: grab;
   touch-action: none;
   user-select: none;
-  padding-top: 0.15rem;
+  -webkit-user-select: none;
+  padding: 0.35rem 0 0.55rem;
+  margin: 0 -0.25rem;
+  /* Larger hit area so drag-down feels immediate */
+  min-height: 4.25rem;
 }
 
 .tryon-sheet-grab:active {
@@ -851,15 +858,15 @@
 .tryon-sheet-handle {
   display: flex;
   justify-content: center;
-  padding: 0.35rem 0 0.15rem;
+  padding: 0.45rem 0 0.2rem;
 }
 
 .tryon-sheet-handle-bar {
   display: block;
-  width: 2.6rem;
-  height: 0.28rem;
+  width: 2.85rem;
+  height: 0.32rem;
   border-radius: 999px;
-  background: rgba(26, 22, 20, 0.22);
+  background: rgba(26, 22, 20, 0.28);
 }
 
 .tryon-picker-top {
