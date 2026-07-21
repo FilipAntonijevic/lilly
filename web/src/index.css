@@ -9,12 +9,8 @@
   --shadow: 0 24px 60px rgba(26, 22, 20, 0.18);
   --font-display: 'Syne', sans-serif;
   --font-body: 'Figtree', sans-serif;
-  /* Shared page wash — keeps sticky footers from flashing white. */
+  /* Flat beige page fill — full screen, including under sticky CTAs. */
   --page-base: #efe4da;
-  --page-bg:
-    radial-gradient(120% 80% at 10% 0%, rgba(232, 160, 144, 0.28), transparent 55%),
-    radial-gradient(90% 70% at 85% 8%, rgba(243, 235, 228, 0.9), transparent 52%),
-    linear-gradient(160deg, #efe4da 0%, #f3ebe4 45%, #e8d8cc 100%);
   color: var(--ink);
   background-color: var(--page-base);
   font-family: var(--font-body);
@@ -35,9 +31,7 @@ body,
   margin: 0;
   min-height: 100%;
   height: 100%;
-  background-color: var(--page-base);
-  background: var(--page-bg);
-  background-attachment: fixed;
+  background: var(--page-base);
 }
 
 html,

@@ -3,9 +3,7 @@
   min-height: 100vh;
   min-height: 100dvh;
   overflow-x: hidden;
-  background-color: var(--page-base);
-  background: var(--page-bg);
-  background-attachment: fixed;
+  background: var(--page-base);
 }
 
 .app.phase-idle {
@@ -482,10 +480,8 @@
   gap: 0.55rem;
   margin-top: 1.25rem;
   padding: 0.85rem 0 calc(0.85rem + env(safe-area-inset-bottom, 0px));
-  /* Same wash as the page (fixed) so sticky bar never paints white. */
-  background-color: var(--page-base);
-  background: var(--page-bg);
-  background-attachment: fixed;
+  /* Transparent — page beige shows through; only the black CTA paints. */
+  background: transparent;
 }
 
 .tryon-cart-summary {
