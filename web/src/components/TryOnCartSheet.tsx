@@ -432,23 +432,29 @@ function CartSwipeItem({
           <div className="tryon-picker-meta">
             <span className="tryon-picker-brand">{product.brand}</span>
             <span className="tryon-picker-name">{product.name}</span>
-            <span className="tryon-picker-price">{priceLabel}</span>
+            <div className="tryon-cart-item-footer">
+              <span className="tryon-picker-price">{priceLabel}</span>
+              <div className="tryon-cart-item-actions">
+                {product.url ? (
+                  <a
+                    className="tryon-chip"
+                    href={product.url}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    {openDmLabel}
+                  </a>
+                ) : null}
+                <button
+                  type="button"
+                  className="tryon-chip"
+                  onClick={finishRemove}
+                >
+                  {removeLabel}
+                </button>
+              </div>
+            </div>
           </div>
-        </div>
-        <div className="tryon-cart-item-actions">
-          {product.url ? (
-            <a
-              className="tryon-chip"
-              href={product.url}
-              target="_blank"
-              rel="noreferrer"
-            >
-              {openDmLabel}
-            </a>
-          ) : null}
-          <button type="button" className="tryon-chip" onClick={finishRemove}>
-            {removeLabel}
-          </button>
         </div>
       </div>
     </li>
