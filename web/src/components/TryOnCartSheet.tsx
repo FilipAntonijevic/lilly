@@ -61,7 +61,6 @@ export function TryOnCartSheet({
   onClose,
 }: TryOnCartSheetProps) {
   const { locale, t } = useLanguage()
-  const [closing, setClosing] = useState(false)
   const sheetRef = useRef<HTMLDivElement>(null)
   const backdropRef = useRef<HTMLDivElement>(null)
   const grabRef = useRef<HTMLDivElement>(null)
@@ -87,7 +86,7 @@ export function TryOnCartSheet({
     }
     const backdrop = backdropRef.current
     if (backdrop) {
-      const opacity = Math.max(0.08, 0.45 * (1 - next / 360))
+      const opacity = Math.max(0.12, 0.4 * (1 - next / 360))
       backdrop.style.background = `rgba(26, 22, 20, ${opacity})`
     }
   }
@@ -96,44 +95,60 @@ export function TryOnCartSheet({
     sheetRef.current?.classList.toggle('is-dragging', active)
   }
 
+  function dismissSheet() {
+    if (closingRef.current) return
+    closingRef.current = true
+    setSheetDragging(false)
+
+    const sheet = sheetRef.current
+    const h = sheet?.offsetHeight ?? 480
+    const fromY = dragYRef.current
+
+    if (sheet) {
+      // Kill enter animation so React/class changes can't replay "rise".
+      sheet.style.animation = 'none'
+      sheet.classList.add('is-closing')
+      sheet.style.transition = 'none'
+      sheet.style.transform = `translate3d(0, ${fromY}px, 0)`
+      void sheet.offsetHeight
+      sheet.style.transition = 'transform 0.22s ease'
+      sheet.style.transform = `translate3d(0, ${h + 64}px, 0)`
+    }
+    if (backdropRef.current) {
+      backdropRef.current.style.transition = 'background 0.22s ease'
+      backdropRef.current.style.background = 'rgba(26, 22, 20, 0)'
+    }
+    window.setTimeout(() => onCloseRef.current(), 230)
+  }
+
+  function snapSheetOpen() {
+    setSheetDragging(false)
+    const sheet = sheetRef.current
+    if (sheet) {
+      sheet.style.animation = 'none'
+      sheet.style.transition = 'transform 0.22s ease'
+      sheet.style.transform = 'translate3d(0, 0, 0)'
+    }
+    if (backdropRef.current) {
+      backdropRef.current.style.transition = 'background 0.22s ease'
+      backdropRef.current.style.background = 'rgba(26, 22, 20, 0.4)'
+    }
+    dragYRef.current = 0
+  }
+
   useEffect(() => {
     const node = grabRef.current
     if (!node) return
     const grabEl: HTMLElement = node
 
-    function dismissSheet() {
-      if (closingRef.current) return
-      closingRef.current = true
-      setClosing(true)
-      setSheetDragging(false)
-      const h = sheetRef.current?.offsetHeight ?? 480
-      const sheet = sheetRef.current
-      if (sheet) {
-        sheet.classList.add('is-closing')
-        sheet.style.transition = 'transform 0.22s ease'
-        sheet.style.transform = `translate3d(0, ${h + 64}px, 0)`
-      }
-      if (backdropRef.current) {
-        backdropRef.current.style.transition =
-          'background 0.22s ease, opacity 0.22s ease'
-        backdropRef.current.style.background = 'rgba(26, 22, 20, 0)'
-      }
-      window.setTimeout(() => onCloseRef.current(), 220)
+    // After open animation, freeze it so later class tweaks never replay rise.
+    const sheet = sheetRef.current
+    const onRiseEnd = () => {
+      if (!sheet || closingRef.current) return
+      sheet.style.animation = 'none'
+      sheet.style.transform = sheet.style.transform || 'translate3d(0, 0, 0)'
     }
-
-    function snapSheetOpen() {
-      setSheetDragging(false)
-      const sheet = sheetRef.current
-      if (sheet) {
-        sheet.style.transition = 'transform 0.22s ease'
-        sheet.style.transform = 'translate3d(0, 0, 0)'
-      }
-      if (backdropRef.current) {
-        backdropRef.current.style.transition = 'background 0.22s ease'
-        backdropRef.current.style.background = 'rgba(26, 22, 20, 0.45)'
-      }
-      dragYRef.current = 0
-    }
+    sheet?.addEventListener('animationend', onRiseEnd)
 
     function onPointerDown(event: PointerEvent) {
       if (closingRef.current) return
@@ -149,8 +164,11 @@ export function TryOnCartSheet({
         velocity: 0,
       }
       setSheetDragging(true)
-      const sheet = sheetRef.current
-      if (sheet) sheet.style.transition = 'none'
+      const sheetEl = sheetRef.current
+      if (sheetEl) {
+        sheetEl.style.animation = 'none'
+        sheetEl.style.transition = 'none'
+      }
       if (backdropRef.current) backdropRef.current.style.transition = 'none'
       try {
         grabEl.setPointerCapture(event.pointerId)
@@ -201,6 +219,7 @@ export function TryOnCartSheet({
     grabEl.addEventListener('pointerup', onPointerUp)
     grabEl.addEventListener('pointercancel', onPointerUp)
     return () => {
+      sheet?.removeEventListener('animationend', onRiseEnd)
       grabEl.removeEventListener('pointerdown', onPointerDown)
       grabEl.removeEventListener('pointermove', onPointerMove)
       grabEl.removeEventListener('pointerup', onPointerUp)
@@ -211,31 +230,13 @@ export function TryOnCartSheet({
   return (
     <div
       ref={backdropRef}
-      className="tryon-picker-backdrop"
+      className="tryon-picker-backdrop tryon-cart-backdrop"
       role="presentation"
-      onClick={() => {
-        if (closingRef.current) return
-        closingRef.current = true
-        setClosing(true)
-        setSheetDragging(false)
-        const h = sheetRef.current?.offsetHeight ?? 480
-        const sheet = sheetRef.current
-        if (sheet) {
-          sheet.classList.add('is-closing')
-          sheet.style.transition = 'transform 0.22s ease'
-          sheet.style.transform = `translate3d(0, ${h + 64}px, 0)`
-        }
-        if (backdropRef.current) {
-          backdropRef.current.style.transition =
-            'background 0.22s ease, opacity 0.22s ease'
-          backdropRef.current.style.background = 'rgba(26, 22, 20, 0)'
-        }
-        window.setTimeout(() => onCloseRef.current(), 220)
-      }}
+      onClick={dismissSheet}
     >
       <div
         ref={sheetRef}
-        className={`tryon-picker tryon-cart-sheet${closing ? ' is-closing' : ''}`}
+        className="tryon-picker tryon-cart-sheet"
         role="dialog"
         aria-modal="true"
         aria-label={t('tryon.cartTitle')}
@@ -252,22 +253,7 @@ export function TryOnCartSheet({
               className="tryon-chip"
               onClick={(e) => {
                 e.stopPropagation()
-                if (closingRef.current) return
-                closingRef.current = true
-                setClosing(true)
-                const h = sheetRef.current?.offsetHeight ?? 480
-                const sheet = sheetRef.current
-                if (sheet) {
-                  sheet.classList.add('is-closing')
-                  sheet.style.transition = 'transform 0.22s ease'
-                  sheet.style.transform = `translate3d(0, ${h + 64}px, 0)`
-                }
-                if (backdropRef.current) {
-                  backdropRef.current.style.transition =
-                    'background 0.22s ease, opacity 0.22s ease'
-                  backdropRef.current.style.background = 'rgba(26, 22, 20, 0)'
-                }
-                window.setTimeout(() => onCloseRef.current(), 220)
+                dismissSheet()
               }}
             >
               {t('tryon.pickClose')}
