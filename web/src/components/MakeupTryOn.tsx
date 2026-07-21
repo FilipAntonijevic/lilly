@@ -79,7 +79,7 @@ export function MakeupTryOn({
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const imageRef = useRef<HTMLImageElement | null>(null)
   const [imageReady, setImageReady] = useState(false)
-  const [activeZone, setActiveZone] = useState<FaceZoneId>('eyes')
+  const [activeZone, setActiveZone] = useState<FaceZoneId>('faceBase')
   const [layers, setLayers] = useState<Record<FaceZoneId, ZoneLayerState>>(() =>
     initialZoneLayers(routine),
   )
