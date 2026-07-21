@@ -70,10 +70,17 @@ export function paintSoftMakeup(options: {
   paintZoneIfActive(layers, 'faceBase', (alpha) => {
     const poly = polygons.find((p) => p.id === 'faceOval')
     if (!poly) return
-    // Even face coverage; soft edge only — no radial “spotlight” fade.
-    const mask = featheredSmoothRing(poly.points, width, height, minSide * 0.022)
-    // Face − sclera − open mouth (inner lips). Keep vermilion for foundation blend.
-    punchScleraAndOpenMouth(mask, landmarks, width, height)
+    // Punch eyes/mouth on a hard mask first, then feather — keeps eye holes large
+    // (feather-then-punch lets blur bleed foundation back into the openings).
+    const hard = createCanvas(width, height)
+    const hctx = hard.getContext('2d')
+    if (!hctx) return
+    hctx.fillStyle = '#fff'
+    pathSmoothRing(hctx, poly.points, width, height)
+    hctx.fill()
+    // Eye holes: from eyeshadow lower edge → under-eye upper edge (+ mouth).
+    punchFoundationOpenings(hard, landmarks, polygons, width, height)
+    const mask = featherMask(hard, minSide * 0.022)
     paintColorThroughMask(ctx, mask, layers.faceBase.product!.shadeHex, alpha, 'soft-light')
     paintColorThroughMask(ctx, mask, layers.faceBase.product!.shadeHex, alpha * 0.4, 'color')
   })
@@ -594,17 +601,107 @@ function punchSmoothRing(
   ctx.fill()
 }
 
-/** Foundation carve-outs: sclera + open mouth cavity (not full lips). */
-function punchScleraAndOpenMouth(
+/**
+ * Foundation carve-outs.
+ * Eye holes span from the lower edge of the eyeshadow (lid) polygon to the
+ * upper edge of the under-eye polygon — larger than the bare sclera ring.
+ */
+function punchFoundationOpenings(
   mask: HTMLCanvasElement,
   landmarks: FaceLandmarkPoint[],
+  polygons: EditableTryOnPolygon[],
   width: number,
   height: number,
 ): void {
-  punchRingFromMask(mask, landmarks, LEFT_EYE_OPENING, width, height, 0.01)
-  punchRingFromMask(mask, landmarks, RIGHT_EYE_OPENING, width, height, 0.01)
+  for (const side of ['left', 'right'] as const) {
+    const ring = foundationEyeHoleRing(landmarks, polygons, side)
+    // Expand before feather so the soft edge still clears lash-to-lash.
+    if (ring.length >= 3) punchPointsFromMask(mask, ring, width, height, 0.02)
+  }
   // Inner mouth only — covers teeth/cavity when open; thin slit when closed.
   punchRingFromMask(mask, landmarks, INNER_MOUTH, width, height, 0.004)
+}
+
+/** Lower lash / upper-lid chains that form the eyeshadow↔under-eye gap. */
+const EYESHADOW_LOWER_LEFT = [173, 157, 158, 159, 160, 161, 246] as const
+const EYESHADOW_LOWER_RIGHT = [398, 384, 385, 386, 387, 388, 466] as const
+const UNDEREYE_UPPER_LEFT = [33, 7, 163, 144, 145, 153, 154, 155, 133] as const
+const UNDEREYE_UPPER_RIGHT = [263, 249, 390, 373, 374, 380, 381, 382, 362] as const
+
+/**
+ * Closed ring: under-eye upper line (lower lashes) then eyeshadow lower line
+ * (upper lashes) reversed — the full gap between those two polygons.
+ */
+function foundationEyeHoleRing(
+  landmarks: FaceLandmarkPoint[],
+  polygons: EditableTryOnPolygon[],
+  side: 'left' | 'right',
+): Point2D[] {
+  const eyeId = side === 'left' ? 'leftEye' : 'rightEye'
+  const underId = side === 'left' ? 'underEyeLeft' : 'underEyeRight'
+  const eyePoly = polygons.find((p) => p.id === eyeId)
+  const underPoly = polygons.find((p) => p.id === underId)
+
+  // Eyeshadow ring is [upper arc…, lower arc…]; lower half = bottom edge.
+  let eyeshadowLower =
+    eyePoly && eyePoly.points.length >= 6
+      ? eyePoly.points.slice(Math.floor(eyePoly.points.length / 2))
+      : pointsFromIndices(
+          landmarks,
+          side === 'left' ? EYESHADOW_LOWER_LEFT : EYESHADOW_LOWER_RIGHT,
+        )
+
+  // Under-eye ring is [upper lid…, infra…]; upper half = top edge.
+  let undereyeUpper =
+    underPoly && underPoly.points.length >= 6
+      ? underPoly.points.slice(0, Math.floor(underPoly.points.length / 2))
+      : pointsFromIndices(
+          landmarks,
+          side === 'left' ? UNDEREYE_UPPER_LEFT : UNDEREYE_UPPER_RIGHT,
+        )
+
+  if (eyeshadowLower.length < 2 || undereyeUpper.length < 2) {
+    return pointsFromIndices(
+      landmarks,
+      side === 'left' ? LEFT_EYE_OPENING : RIGHT_EYE_OPENING,
+    )
+  }
+
+  // Ensure both edges run outer → inner so the closed ring doesn't bow-tie.
+  eyeshadowLower = orderEyeEdgeOuterToInner(eyeshadowLower, side)
+  undereyeUpper = orderEyeEdgeOuterToInner(undereyeUpper, side)
+
+  return [...undereyeUpper, ...[...eyeshadowLower].reverse()]
+}
+
+/** Sort an eye edge so it runs from outer canthus toward the nose. */
+function orderEyeEdgeOuterToInner(edge: Point2D[], side: 'left' | 'right'): Point2D[] {
+  if (edge.length < 2) return edge
+  const first = edge[0]
+  const last = edge[edge.length - 1]
+  // Mesh left eye (person's right) sits on the right side of the image (larger x = outer).
+  const firstIsOuter =
+    side === 'left' ? first.x >= last.x : first.x <= last.x
+  return firstIsOuter ? edge : [...edge].reverse()
+}
+
+function punchPointsFromMask(
+  mask: HTMLCanvasElement,
+  points: Point2D[],
+  width: number,
+  height: number,
+  expandNorm: number,
+): void {
+  const mctx = mask.getContext('2d')
+  if (!mctx || points.length < 3) return
+  let ring = points
+  if (expandNorm !== 0) ring = expandRing(points, expandNorm)
+  mctx.save()
+  mctx.globalCompositeOperation = 'destination-out'
+  mctx.fillStyle = '#fff'
+  pathSmoothRing(mctx, ring, width, height)
+  mctx.fill()
+  mctx.restore()
 }
 
 function punchRingFromMask(
