@@ -41,6 +41,7 @@ function tickHaptic() {
 }
 
 const SWIPE_THRESHOLD_PX = 88
+const SHEET_DISMISS_PX = 96
 
 type SwipeMode = 'pending' | 'horizontal' | 'vertical'
 
@@ -57,22 +58,126 @@ export function TryOnCartSheet({
   onClose,
 }: TryOnCartSheetProps) {
   const { locale, t } = useLanguage()
+  const [dragY, setDragY] = useState(0)
+  const [draggingSheet, setDraggingSheet] = useState(false)
+  const [closing, setClosing] = useState(false)
+  const sheetDragRef = useRef<{
+    pointerId: number
+    startY: number
+    lastY: number
+    lastT: number
+    velocity: number
+  } | null>(null)
+  const dragYRef = useRef(0)
+  const sheetRef = useRef<HTMLDivElement>(null)
+
+  function setSheetOffset(next: number) {
+    dragYRef.current = next
+    setDragY(next)
+  }
+
+  function dismissSheet() {
+    if (closing) return
+    setClosing(true)
+    setDraggingSheet(false)
+    const h = sheetRef.current?.offsetHeight ?? 480
+    setSheetOffset(h + 48)
+    window.setTimeout(() => onClose(), 220)
+  }
+
+  function onSheetPointerDown(event: ReactPointerEvent<HTMLElement>) {
+    if (closing) return
+    const target = event.target as HTMLElement | null
+    if (target?.closest('button, a')) return
+
+    sheetDragRef.current = {
+      pointerId: event.pointerId,
+      startY: event.clientY,
+      lastY: event.clientY,
+      lastT: performance.now(),
+      velocity: 0,
+    }
+    setDraggingSheet(true)
+    try {
+      event.currentTarget.setPointerCapture(event.pointerId)
+    } catch {
+      /* ignore */
+    }
+  }
+
+  function onSheetPointerMove(event: ReactPointerEvent<HTMLElement>) {
+    const drag = sheetDragRef.current
+    if (!drag || drag.pointerId !== event.pointerId || closing) return
+
+    const now = performance.now()
+    const dy = event.clientY - drag.startY
+    const dt = Math.max(1, now - drag.lastT)
+    drag.velocity = (event.clientY - drag.lastY) / dt
+    drag.lastY = event.clientY
+    drag.lastT = now
+
+    // Only drag down; slight rubber-band upward.
+    setSheetOffset(Math.max(-12, dy))
+  }
+
+  function onSheetPointerUp(event: ReactPointerEvent<HTMLElement>) {
+    const drag = sheetDragRef.current
+    if (!drag || drag.pointerId !== event.pointerId) return
+    sheetDragRef.current = null
+    setDraggingSheet(false)
+    try {
+      event.currentTarget.releasePointerCapture(event.pointerId)
+    } catch {
+      /* already released */
+    }
+
+    const shouldClose =
+      dragYRef.current >= SHEET_DISMISS_PX ||
+      (dragYRef.current > 40 && drag.velocity > 0.55)
+    if (shouldClose) {
+      dismissSheet()
+      return
+    }
+    setSheetOffset(0)
+  }
+
+  const backdropOpacity = closing
+    ? 0
+    : Math.max(0.12, 0.45 * (1 - Math.max(0, dragY) / 320))
 
   return (
-    <div className="tryon-picker-backdrop" role="presentation" onClick={onClose}>
+    <div
+      className="tryon-picker-backdrop"
+      role="presentation"
+      onClick={dismissSheet}
+      style={{ background: `rgba(26, 22, 20, ${backdropOpacity})` }}
+    >
       <div
-        className="tryon-picker tryon-cart-sheet"
+        ref={sheetRef}
+        className={`tryon-picker tryon-cart-sheet${draggingSheet ? ' is-dragging' : ''}${closing ? ' is-closing' : ''}`}
         role="dialog"
         aria-modal="true"
         aria-label={t('tryon.cartTitle')}
         onClick={(e) => e.stopPropagation()}
+        style={{ transform: `translate3d(0, ${Math.max(0, dragY)}px, 0)` }}
       >
-        <header className="tryon-picker-top">
-          <h3>{t('tryon.cartTitle')}</h3>
-          <button type="button" className="tryon-chip" onClick={onClose}>
-            {t('tryon.pickClose')}
-          </button>
-        </header>
+        <div
+          className="tryon-sheet-grab"
+          onPointerDown={onSheetPointerDown}
+          onPointerMove={onSheetPointerMove}
+          onPointerUp={onSheetPointerUp}
+          onPointerCancel={onSheetPointerUp}
+        >
+          <div className="tryon-sheet-handle" aria-hidden="true">
+            <span className="tryon-sheet-handle-bar" />
+          </div>
+          <header className="tryon-picker-top">
+            <h3>{t('tryon.cartTitle')}</h3>
+            <button type="button" className="tryon-chip" onClick={dismissSheet}>
+              {t('tryon.pickClose')}
+            </button>
+          </header>
+        </div>
 
         {items.length === 0 ? (
           <p className="tryon-picker-empty">{t('tryon.cartEmpty')}</p>

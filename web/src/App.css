@@ -782,6 +782,49 @@
   animation: rise 0.25s ease both;
 }
 
+.tryon-cart-sheet {
+  grid-template-rows: auto 1fr;
+  padding-top: 0.35rem;
+  will-change: transform;
+  transition: transform 0.22s ease;
+  touch-action: pan-y;
+}
+
+.tryon-cart-sheet.is-dragging {
+  transition: none;
+}
+
+.tryon-cart-sheet.is-closing {
+  transition: transform 0.22s ease;
+}
+
+.tryon-sheet-grab {
+  display: grid;
+  gap: 0.35rem;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  padding-top: 0.15rem;
+}
+
+.tryon-sheet-grab:active {
+  cursor: grabbing;
+}
+
+.tryon-sheet-handle {
+  display: flex;
+  justify-content: center;
+  padding: 0.35rem 0 0.15rem;
+}
+
+.tryon-sheet-handle-bar {
+  display: block;
+  width: 2.6rem;
+  height: 0.28rem;
+  border-radius: 999px;
+  background: rgba(26, 22, 20, 0.22);
+}
+
 .tryon-picker-top {
   display: flex;
   align-items: center;
