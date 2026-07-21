@@ -58,6 +58,9 @@ const sr = {
   'tryon.lipsToggle': 'Karmin',
   'tryon.lipsOn': 'Uključen',
   'tryon.lipsOff': 'Isključen',
+  'tryon.allFilters': 'Svi filteri',
+  'tryon.allFiltersOn': 'Uključeni',
+  'tryon.allFiltersOff': 'Isključeni',
   'tryon.hintLips':
     'Karmin je uključeno / isključeno — bez klizača intenziteta. Izaberi nijansu ili proizvod, pa uključi.',
   'tryon.hintEdit':
@@ -250,6 +253,9 @@ const en: Record<MessageKey, string> = {
   'tryon.lipsToggle': 'Lipstick',
   'tryon.lipsOn': 'On',
   'tryon.lipsOff': 'Off',
+  'tryon.allFilters': 'All filters',
+  'tryon.allFiltersOn': 'On',
+  'tryon.allFiltersOff': 'Off',
   'tryon.hintLips':
     'Lipstick is on/off — no intensity slider. Pick a shade or product, then turn it on.',
   'tryon.hintEdit':
