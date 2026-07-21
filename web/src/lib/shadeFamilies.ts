@@ -47,3 +47,32 @@ export function findShadeVariants(
     return a.id.localeCompare(b.id)
   })
 }
+
+/**
+ * One representative product per retail line in a category (for pickers).
+ * Prefers the first shade in light→deep order as the line card.
+ */
+export function listProductLines(
+  catalog: MakeupProduct[],
+  category: MakeupProduct['category'],
+): MakeupProduct[] {
+  const seen = new Map<string, MakeupProduct>()
+  for (const product of catalog) {
+    if (product.category !== category) continue
+    const key = shadeFamilyKey(product)
+    const existing = seen.get(key)
+    if (!existing) {
+      seen.set(key, product)
+      continue
+    }
+    // Keep the lighter / earlier shade as the line representative.
+    if (shadeSortValue(product) < shadeSortValue(existing)) {
+      seen.set(key, product)
+    }
+  }
+  return [...seen.values()].sort((a, b) => {
+    const brand = a.brand.localeCompare(b.brand)
+    if (brand !== 0) return brand
+    return productBaseName(a.name).localeCompare(productBaseName(b.name))
+  })
+}

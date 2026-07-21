@@ -50,6 +50,11 @@ const sr = {
   'tryon.editOff': 'Samo pregled',
   'tryon.reset': 'Vrati tačke',
   'tryon.regions': 'Zone šminke',
+  'tryon.pickSelf': 'Izaberi sam',
+  'tryon.pickTitle': 'Izaberi proizvod',
+  'tryon.pickClose': 'Zatvori',
+  'tryon.pickSearch': 'Pretraži brend ili naziv…',
+  'tryon.pickEmpty': 'Nema proizvoda za ovu pretragu.',
   'tryon.hintEdit':
     'Izaberi zonu, pa pomeri tačke da poravnaš poligon. Scroll ili klizač menja intenzitet.',
   'tryon.hintView': 'Klizač ili scroll pojačava / smanjuje koliko je šminke naneseno.',
@@ -224,6 +229,11 @@ const en: Record<MessageKey, string> = {
   'tryon.editOff': 'Preview only',
   'tryon.reset': 'Reset points',
   'tryon.regions': 'Makeup zones',
+  'tryon.pickSelf': 'Choose myself',
+  'tryon.pickTitle': 'Choose a product',
+  'tryon.pickClose': 'Close',
+  'tryon.pickSearch': 'Search brand or name…',
+  'tryon.pickEmpty': 'No products match this search.',
   'tryon.hintEdit':
     'Pick a zone, then drag points to fit the polygon. Scroll or the slider sets intensity.',
   'tryon.hintView': 'Use the slider or scroll to strengthen or soften the makeup layers.',

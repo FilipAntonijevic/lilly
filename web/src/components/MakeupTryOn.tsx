@@ -18,6 +18,7 @@ import {
   type Point2D,
 } from '../lib/tryOnRegions'
 import { paintSoftMakeup } from '../lib/tryOnRender'
+import { shadeFamilyKey } from '../lib/shadeFamilies'
 import type {
   FaceLandmarkPoint,
   FaceZoneId,
@@ -25,6 +26,7 @@ import type {
   MakeupProduct,
 } from '../types'
 import { ProductCard } from './ProductCard'
+import { TryOnProductPicker } from './TryOnProductPicker'
 
 interface MakeupTryOnProps {
   photoUrl: string
@@ -40,7 +42,10 @@ interface DragState {
 
 interface ZoneLayerState {
   intensity: number
+  /** Currently painted / selected shade */
   product: MakeupProduct | null
+  /** Product line whose shade dots are shown */
+  lineProduct: MakeupProduct | null
 }
 
 const HANDLE_HIT_PX = 16
@@ -53,6 +58,7 @@ function initialZoneLayers(routine: FaceZoneMatch[]): Record<FaceZoneId, ZoneLay
     layers[zoneId] = {
       intensity: DEFAULT_INTENSITY,
       product: match,
+      lineProduct: match,
     }
   }
   return layers
@@ -75,6 +81,7 @@ export function MakeupTryOn({
   const [layers, setLayers] = useState<Record<FaceZoneId, ZoneLayerState>>(() =>
     initialZoneLayers(routine),
   )
+  const [pickerOpen, setPickerOpen] = useState(false)
   const dragRef = useRef<DragState | null>(null)
   const basePolygonsRef = useRef(polygons)
 
@@ -297,6 +304,15 @@ export function MakeupTryOn({
 
   const layersPct = Math.round(activeLayer.intensity * 100)
   const recommended = routine.find((z) => z.zoneId === activeZone)?.match?.product
+  const activeCategory =
+    routine.find((z) => z.zoneId === activeZone)?.category ?? 'lipstick'
+  const cardProduct =
+    activeLayer.lineProduct ?? activeLayer.product ?? recommended ?? null
+
+  function pickProductLine(product: MakeupProduct) {
+    updateActiveLayer({ product, lineProduct: product })
+    setPickerOpen(false)
+  }
 
   return (
     <div className="tryon">
@@ -327,7 +343,10 @@ export function MakeupTryOn({
               role="tab"
               aria-selected={isActive}
               className={`tryon-zone-tab${isActive ? ' is-active' : ''}${hasMakeup ? ' is-applied' : ''}`}
-              onClick={() => setActiveZone(tab.zoneId)}
+              onClick={() => {
+                setActiveZone(tab.zoneId)
+                setPickerOpen(false)
+              }}
             >
               {tab.label}
             </button>
@@ -336,9 +355,9 @@ export function MakeupTryOn({
       </div>
 
       <div className="tryon-zone-panel">
-        {recommended && activeLayer.product ? (
+        {cardProduct && activeLayer.product ? (
           <ProductCard
-            product={recommended}
+            product={cardProduct}
             catalog={catalog}
             selected={activeLayer.product}
             onSelectedChange={(product) => updateActiveLayer({ product })}
@@ -346,6 +365,23 @@ export function MakeupTryOn({
         ) : (
           <p className="zone-empty">{t('results.emptyZone')}</p>
         )}
+
+        <div className="tryon-zone-actions">
+          <button
+            type="button"
+            className="btn-tryon-pick"
+            onClick={() => setPickerOpen(true)}
+          >
+            {t('tryon.pickSelf')}
+          </button>
+          <button
+            type="button"
+            className="tryon-chip"
+            onClick={resetActivePolygons}
+          >
+            {t('tryon.reset')}
+          </button>
+        </div>
 
         <label className="tryon-intensity" onWheel={onIntensityWheel}>
           <span className="tryon-intensity-label">
@@ -369,18 +405,21 @@ export function MakeupTryOn({
           />
         </label>
 
-        <div className="tryon-zone-actions">
-          <button
-            type="button"
-            className="tryon-chip"
-            onClick={resetActivePolygons}
-          >
-            {t('tryon.reset')}
-          </button>
-        </div>
-
         <p className="tryon-hint">{t('tryon.hintZone')}</p>
       </div>
+
+      {pickerOpen && (
+        <TryOnProductPicker
+          category={activeCategory}
+          catalog={catalog}
+          selectedId={activeLayer.product?.id ?? null}
+          selectedLineKey={
+            cardProduct ? shadeFamilyKey(cardProduct) : null
+          }
+          onPick={pickProductLine}
+          onClose={() => setPickerOpen(false)}
+        />
+      )}
     </div>
   )
 }
