@@ -8,6 +8,7 @@ import {
   hairTemperatureLabel,
   undertoneLabel,
 } from '../lib/labels'
+import { MakeupTryOn } from './MakeupTryOn'
 import { ProductCard } from './ProductCard'
 
 interface ResultsPanelProps {
@@ -26,10 +27,27 @@ export function ResultsPanel({
   onRetake,
 }: ResultsPanelProps) {
   const { locale, t } = useLanguage()
+  const landmarks = profile.landmarks
+  const canTryOn = Boolean(landmarks && landmarks.length >= 100)
 
   return (
     <section className="results" aria-live="polite">
-      <img src={photoUrl} alt={t('results.photoAlt')} className="results-photo" />
+      {canTryOn && landmarks ? (
+        <MakeupTryOn
+          photoUrl={photoUrl}
+          landmarks={landmarks}
+          routine={routine}
+        />
+      ) : (
+        <>
+          <img
+            src={photoUrl}
+            alt={t('results.photoAlt')}
+            className="results-photo"
+          />
+          <p className="tryon-fallback">{t('tryon.unavailable')}</p>
+        </>
+      )}
 
       <div className="results-profile">
         <p className="eyebrow">{t('results.eyebrow')}</p>

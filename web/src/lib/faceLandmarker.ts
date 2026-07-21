@@ -61,3 +61,22 @@ export const MAKEUP_REGIONS = {
 } as const
 
 export type MakeupRegionKey = keyof typeof MAKEUP_REGIONS
+
+/**
+ * Ordered landmark rings that define editable try-on polygons.
+ * Kept short so users can drag control points comfortably.
+ */
+export const TRYON_POLYGON_INDICES = {
+  leftEye: [226, 23, 27, 55, 133, 153, 145, 33],
+  rightEye: [446, 253, 257, 285, 362, 380, 374, 263],
+  lips: [61, 40, 37, 0, 267, 270, 291, 321, 314, 17, 84, 91],
+  leftCheek: [50, 101, 118, 187, 205, 36],
+  rightCheek: [280, 330, 347, 411, 425, 266],
+  underEyeLeft: [111, 117, 119, 100, 47, 114],
+  underEyeRight: [340, 346, 348, 329, 277, 343],
+  jawLeft: [58, 172, 136, 150, 149, 176],
+  jawRight: [288, 397, 365, 379, 378, 400],
+  faceOval: [10, 297, 332, 454, 361, 397, 152, 172, 58, 234, 127, 54, 103],
+} as const
+
+export type TryOnPolygonId = keyof typeof TRYON_POLYGON_INDICES

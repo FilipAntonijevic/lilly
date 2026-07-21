@@ -330,6 +330,7 @@ function withSkinMetrics(
   usedFaceMesh: boolean,
   regions: FaceRegionSample[],
   lighting: LightingInfo,
+  landmarks?: Landmark[],
 ): SkinProfile {
   const ita = computeIta(lab)
   const fitzpatrick = itaToFitzpatrick(ita)
@@ -345,6 +346,7 @@ function withSkinMetrics(
     hair,
     sampledPixels,
     usedFaceMesh,
+    landmarks: landmarks?.map((lm) => ({ x: lm.x, y: lm.y, z: lm.z })),
     regions,
     lighting,
   }
@@ -532,6 +534,7 @@ function analyzeWithLandmarks(
     true,
     regions.filter((region) => region.pixelCount > 0),
     lighting,
+    landmarks,
   )
 }
 

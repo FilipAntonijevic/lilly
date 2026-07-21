@@ -432,6 +432,98 @@
   margin-bottom: 1.5rem;
 }
 
+.tryon {
+  margin-bottom: 1.75rem;
+}
+
+.tryon-stage {
+  position: relative;
+  border-radius: 1.25rem;
+  overflow: hidden;
+  box-shadow: var(--shadow);
+  background: #1a1614;
+  touch-action: none;
+}
+
+.tryon-canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  vertical-align: top;
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.tryon-controls {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 0.9rem;
+}
+
+.tryon-intensity {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.tryon-intensity-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.75rem;
+  font-size: 0.92rem;
+  color: var(--ink-soft);
+}
+
+.tryon-intensity-label strong {
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.tryon-intensity input[type='range'] {
+  width: 100%;
+  accent-color: var(--blush-deep);
+  cursor: pointer;
+}
+
+.tryon-toolbar,
+.tryon-regions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.tryon-chip {
+  appearance: none;
+  border: 1px solid var(--line);
+  background: rgba(255, 248, 243, 0.72);
+  color: var(--ink-soft);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  padding: 0.45rem 0.7rem;
+  border-radius: 0.55rem;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.tryon-chip.is-active {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--foam);
+}
+
+.tryon-hint,
+.tryon-fallback {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  color: var(--ink-soft);
+}
+
+.tryon-fallback {
+  margin: -0.75rem 0 1.5rem;
+}
+
 .results-profile {
   margin-bottom: 2.25rem;
 }

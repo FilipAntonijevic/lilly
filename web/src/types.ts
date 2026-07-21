@@ -68,6 +68,13 @@ export interface LightingInfo {
   exposureGain: number
 }
 
+/** Normalized MediaPipe landmark (0–1 image space). */
+export interface FaceLandmarkPoint {
+  x: number
+  y: number
+  z?: number
+}
+
 export interface SkinProfile {
   lab: LabColor
   hex: string
@@ -89,6 +96,8 @@ export interface SkinProfile {
   sampledPixels: number
   /** True when MediaPipe Face Landmarker located facial landmarks */
   usedFaceMesh: boolean
+  /** Full face mesh when available — drives editable try-on polygons */
+  landmarks?: FaceLandmarkPoint[]
   /** Per-region color samples (cheeks, forehead, jaw, …) */
   regions: FaceRegionSample[]
   lighting: LightingInfo
