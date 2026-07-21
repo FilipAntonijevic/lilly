@@ -97,8 +97,9 @@ export function TryOnCartSheet({
   }
 
   useEffect(() => {
-    const grabEl = grabRef.current
-    if (!grabEl) return
+    const node = grabRef.current
+    if (!node) return
+    const grabEl: HTMLElement = node
 
     function dismissSheet() {
       if (closingRef.current) return
