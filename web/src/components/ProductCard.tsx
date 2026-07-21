@@ -211,6 +211,18 @@ export function ProductCard({
   )
 }
 
+type ShadeGestureMode = 'pending' | 'horizontal' | 'vertical'
+
+interface ShadeGesture {
+  pointerId: number
+  startX: number
+  startY: number
+  mode: ShadeGestureMode
+  startShadeId: string | null
+}
+
+const AXIS_LOCK_PX = 8
+
 function ShadeDotsRow({
   variants,
   selectedId,
@@ -226,7 +238,7 @@ function ShadeDotsRow({
 }) {
   const rowRef = useRef<HTMLDivElement>(null)
   const [dragging, setDragging] = useState(false)
-  const draggingRef = useRef(false)
+  const gestureRef = useRef<ShadeGesture | null>(null)
 
   /** Map pointer X to the nearest circle in this row only. */
   function selectFromClientX(clientX: number) {
@@ -253,47 +265,88 @@ function ShadeDotsRow({
     if (next) onSelect(next, true)
   }
 
-  function onShadePointerDown(event: ReactPointerEvent<HTMLButtonElement>) {
-    event.preventDefault()
-    event.stopPropagation()
-    const id = event.currentTarget.dataset.shadeId
-    if (id) {
-      const next = variantsById.get(id)
-      if (next) {
-        if (next.id === selectedIdRef.current) tickHaptic()
-        else onSelect(next, true)
-      }
-    }
-    draggingRef.current = true
+  function selectShadeId(id: string | null) {
+    if (!id) return
+    const next = variantsById.get(id)
+    if (!next) return
+    if (next.id === selectedIdRef.current) tickHaptic()
+    else onSelect(next, true)
+  }
+
+  function beginHorizontal(
+    event: ReactPointerEvent<HTMLDivElement>,
+    gesture: ShadeGesture,
+  ) {
+    gesture.mode = 'horizontal'
     setDragging(true)
-    const track = rowRef.current
-    if (track) {
-      try {
-        track.setPointerCapture(event.pointerId)
-      } catch {
-        event.currentTarget.setPointerCapture(event.pointerId)
-      }
-    } else {
+    try {
       event.currentTarget.setPointerCapture(event.pointerId)
+    } catch {
+      /* ignore */
+    }
+    selectFromClientX(event.clientX)
+  }
+
+  function onRowPointerDown(event: ReactPointerEvent<HTMLDivElement>) {
+    if (event.button !== 0 && event.pointerType === 'mouse') return
+    const target = (event.target as HTMLElement | null)?.closest?.(
+      '[data-shade-id]',
+    ) as HTMLElement | null
+    // Do not preventDefault — vertical moves must be able to scroll the page.
+    gestureRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      mode: 'pending',
+      startShadeId: target?.dataset.shadeId ?? null,
     }
   }
 
-  function onShadePointerMove(event: ReactPointerEvent<HTMLElement>) {
-    if (!draggingRef.current) return
+  function onRowPointerMove(event: ReactPointerEvent<HTMLDivElement>) {
+    const gesture = gestureRef.current
+    if (!gesture || gesture.pointerId !== event.pointerId) return
+
+    const dx = event.clientX - gesture.startX
+    const dy = event.clientY - gesture.startY
+
+    if (gesture.mode === 'pending') {
+      if (Math.abs(dx) < AXIS_LOCK_PX && Math.abs(dy) < AXIS_LOCK_PX) return
+      if (Math.abs(dy) >= Math.abs(dx)) {
+        // Vertical intent — abandon shade drag so the page can scroll.
+        gesture.mode = 'vertical'
+        return
+      }
+      beginHorizontal(event, gesture)
+      event.preventDefault()
+      return
+    }
+
+    if (gesture.mode !== 'horizontal') return
     event.preventDefault()
     selectFromClientX(event.clientX)
   }
 
-  function onShadePointerUp(event: ReactPointerEvent<HTMLElement>) {
-    if (!draggingRef.current) return
-    event.preventDefault()
-    selectFromClientX(event.clientX)
-    draggingRef.current = false
+  function onRowPointerUp(event: ReactPointerEvent<HTMLDivElement>) {
+    const gesture = gestureRef.current
+    if (!gesture || gesture.pointerId !== event.pointerId) return
+    gestureRef.current = null
+
+    if (gesture.mode === 'vertical') {
+      setDragging(false)
+      return
+    }
+
+    if (gesture.mode === 'pending') {
+      selectShadeId(gesture.startShadeId)
+    } else if (gesture.mode === 'horizontal') {
+      selectFromClientX(event.clientX)
+    }
+
     setDragging(false)
     try {
-      rowRef.current?.releasePointerCapture(event.pointerId)
+      event.currentTarget.releasePointerCapture(event.pointerId)
     } catch {
-      /* already released */
+      /* already released / never captured */
     }
   }
 
@@ -301,9 +354,10 @@ function ShadeDotsRow({
     <div
       ref={rowRef}
       className={dragging ? 'shade-dots-row is-dragging' : 'shade-dots-row'}
-      onPointerMove={onShadePointerMove}
-      onPointerUp={onShadePointerUp}
-      onPointerCancel={onShadePointerUp}
+      onPointerDown={onRowPointerDown}
+      onPointerMove={onRowPointerMove}
+      onPointerUp={onRowPointerUp}
+      onPointerCancel={onRowPointerUp}
     >
       {variants.map((variant) => {
         const selectedShade = variant.id === selectedId
@@ -320,7 +374,6 @@ function ShadeDotsRow({
             style={{ background: variant.shadeHex }}
             title={variant.shadeName || variant.name}
             aria-label={variant.shadeName || variant.name}
-            onPointerDown={onShadePointerDown}
             onClick={(e) => {
               e.preventDefault()
               e.stopPropagation()

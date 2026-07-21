@@ -1457,7 +1457,8 @@
   overflow-x: auto;
   overflow-y: hidden;
   overscroll-behavior-x: contain;
-  touch-action: none;
+  /* Allow vertical page scroll; horizontal drag locks to shade selection. */
+  touch-action: pan-y;
   user-select: none;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
@@ -1480,7 +1481,7 @@
   box-shadow: 0 0 0 1px rgba(26, 22, 20, 0.18);
   cursor: grab;
   flex-shrink: 0;
-  touch-action: none;
+  touch-action: pan-y;
   transition: transform 0.12s ease, box-shadow 0.12s ease;
 }
 
