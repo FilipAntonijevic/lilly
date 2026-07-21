@@ -1,4 +1,5 @@
 import {
+  useEffect,
   useRef,
   useState,
   type PointerEvent as ReactPointerEvent,
@@ -41,7 +42,9 @@ function tickHaptic() {
 }
 
 const SWIPE_THRESHOLD_PX = 88
-const SHEET_DISMISS_PX = 96
+/** Close when released past this fraction of sheet height (or absolute px floor). */
+const SHEET_DISMISS_RATIO = 0.22
+const SHEET_DISMISS_MIN_PX = 72
 
 type SwipeMode = 'pending' | 'horizontal' | 'vertical'
 
@@ -58,122 +61,214 @@ export function TryOnCartSheet({
   onClose,
 }: TryOnCartSheetProps) {
   const { locale, t } = useLanguage()
-  const [dragY, setDragY] = useState(0)
-  const [draggingSheet, setDraggingSheet] = useState(false)
   const [closing, setClosing] = useState(false)
+  const sheetRef = useRef<HTMLDivElement>(null)
+  const backdropRef = useRef<HTMLDivElement>(null)
+  const grabRef = useRef<HTMLDivElement>(null)
+  const dragYRef = useRef(0)
+  const closingRef = useRef(false)
+  const onCloseRef = useRef(onClose)
+  onCloseRef.current = onClose
   const sheetDragRef = useRef<{
     pointerId: number
     startY: number
+    originY: number
     lastY: number
     lastT: number
     velocity: number
   } | null>(null)
-  const dragYRef = useRef(0)
-  const sheetRef = useRef<HTMLDivElement>(null)
 
-  function setSheetOffset(next: number) {
+  function applySheetY(y: number) {
+    const next = Math.max(0, y)
     dragYRef.current = next
-    setDragY(next)
-  }
-
-  function dismissSheet() {
-    if (closing) return
-    setClosing(true)
-    setDraggingSheet(false)
-    const h = sheetRef.current?.offsetHeight ?? 480
-    setSheetOffset(h + 48)
-    window.setTimeout(() => onClose(), 220)
-  }
-
-  function onSheetPointerDown(event: ReactPointerEvent<HTMLElement>) {
-    if (closing) return
-    const target = event.target as HTMLElement | null
-    if (target?.closest('button, a')) return
-
-    sheetDragRef.current = {
-      pointerId: event.pointerId,
-      startY: event.clientY,
-      lastY: event.clientY,
-      lastT: performance.now(),
-      velocity: 0,
+    const sheet = sheetRef.current
+    if (sheet) {
+      sheet.style.transform = `translate3d(0, ${next}px, 0)`
     }
-    setDraggingSheet(true)
-    try {
-      event.currentTarget.setPointerCapture(event.pointerId)
-    } catch {
-      /* ignore */
+    const backdrop = backdropRef.current
+    if (backdrop) {
+      const opacity = Math.max(0.08, 0.45 * (1 - next / 360))
+      backdrop.style.background = `rgba(26, 22, 20, ${opacity})`
     }
   }
 
-  function onSheetPointerMove(event: ReactPointerEvent<HTMLElement>) {
-    const drag = sheetDragRef.current
-    if (!drag || drag.pointerId !== event.pointerId || closing) return
-
-    const now = performance.now()
-    const dy = event.clientY - drag.startY
-    const dt = Math.max(1, now - drag.lastT)
-    drag.velocity = (event.clientY - drag.lastY) / dt
-    drag.lastY = event.clientY
-    drag.lastT = now
-
-    // Only drag down; slight rubber-band upward.
-    setSheetOffset(Math.max(-12, dy))
+  function setSheetDragging(active: boolean) {
+    sheetRef.current?.classList.toggle('is-dragging', active)
   }
 
-  function onSheetPointerUp(event: ReactPointerEvent<HTMLElement>) {
-    const drag = sheetDragRef.current
-    if (!drag || drag.pointerId !== event.pointerId) return
-    sheetDragRef.current = null
-    setDraggingSheet(false)
-    try {
-      event.currentTarget.releasePointerCapture(event.pointerId)
-    } catch {
-      /* already released */
+  useEffect(() => {
+    const grabEl = grabRef.current
+    if (!grabEl) return
+
+    function dismissSheet() {
+      if (closingRef.current) return
+      closingRef.current = true
+      setClosing(true)
+      setSheetDragging(false)
+      const h = sheetRef.current?.offsetHeight ?? 480
+      const sheet = sheetRef.current
+      if (sheet) {
+        sheet.classList.add('is-closing')
+        sheet.style.transition = 'transform 0.22s ease'
+        sheet.style.transform = `translate3d(0, ${h + 64}px, 0)`
+      }
+      if (backdropRef.current) {
+        backdropRef.current.style.transition =
+          'background 0.22s ease, opacity 0.22s ease'
+        backdropRef.current.style.background = 'rgba(26, 22, 20, 0)'
+      }
+      window.setTimeout(() => onCloseRef.current(), 220)
     }
 
-    const shouldClose =
-      dragYRef.current >= SHEET_DISMISS_PX ||
-      (dragYRef.current > 40 && drag.velocity > 0.55)
-    if (shouldClose) {
-      dismissSheet()
-      return
+    function snapSheetOpen() {
+      setSheetDragging(false)
+      const sheet = sheetRef.current
+      if (sheet) {
+        sheet.style.transition = 'transform 0.22s ease'
+        sheet.style.transform = 'translate3d(0, 0, 0)'
+      }
+      if (backdropRef.current) {
+        backdropRef.current.style.transition = 'background 0.22s ease'
+        backdropRef.current.style.background = 'rgba(26, 22, 20, 0.45)'
+      }
+      dragYRef.current = 0
     }
-    setSheetOffset(0)
-  }
 
-  const backdropOpacity = closing
-    ? 0
-    : Math.max(0.12, 0.45 * (1 - Math.max(0, dragY) / 320))
+    function onPointerDown(event: PointerEvent) {
+      if (closingRef.current) return
+      const target = event.target as HTMLElement | null
+      if (target?.closest('button, a')) return
+
+      sheetDragRef.current = {
+        pointerId: event.pointerId,
+        startY: event.clientY,
+        originY: dragYRef.current,
+        lastY: event.clientY,
+        lastT: performance.now(),
+        velocity: 0,
+      }
+      setSheetDragging(true)
+      const sheet = sheetRef.current
+      if (sheet) sheet.style.transition = 'none'
+      if (backdropRef.current) backdropRef.current.style.transition = 'none'
+      try {
+        grabEl.setPointerCapture(event.pointerId)
+      } catch {
+        /* ignore */
+      }
+      event.preventDefault()
+    }
+
+    function onPointerMove(event: PointerEvent) {
+      const drag = sheetDragRef.current
+      if (!drag || drag.pointerId !== event.pointerId || closingRef.current) return
+
+      const now = performance.now()
+      const dt = Math.max(1, now - drag.lastT)
+      drag.velocity = (event.clientY - drag.lastY) / dt
+      drag.lastY = event.clientY
+      drag.lastT = now
+
+      const dy = event.clientY - drag.startY
+      applySheetY(drag.originY + dy)
+      event.preventDefault()
+    }
+
+    function onPointerUp(event: PointerEvent) {
+      const drag = sheetDragRef.current
+      if (!drag || drag.pointerId !== event.pointerId) return
+      sheetDragRef.current = null
+      try {
+        grabEl.releasePointerCapture(event.pointerId)
+      } catch {
+        /* already released */
+      }
+
+      const y = dragYRef.current
+      const sheetH = sheetRef.current?.offsetHeight ?? 480
+      const threshold = Math.max(SHEET_DISMISS_MIN_PX, sheetH * SHEET_DISMISS_RATIO)
+      const flingClose = y > 36 && drag.velocity > 0.45
+      if (y >= threshold || flingClose) {
+        dismissSheet()
+        return
+      }
+      snapSheetOpen()
+    }
+
+    grabEl.addEventListener('pointerdown', onPointerDown, { passive: false })
+    grabEl.addEventListener('pointermove', onPointerMove, { passive: false })
+    grabEl.addEventListener('pointerup', onPointerUp)
+    grabEl.addEventListener('pointercancel', onPointerUp)
+    return () => {
+      grabEl.removeEventListener('pointerdown', onPointerDown)
+      grabEl.removeEventListener('pointermove', onPointerMove)
+      grabEl.removeEventListener('pointerup', onPointerUp)
+      grabEl.removeEventListener('pointercancel', onPointerUp)
+    }
+  }, [])
 
   return (
     <div
+      ref={backdropRef}
       className="tryon-picker-backdrop"
       role="presentation"
-      onClick={dismissSheet}
-      style={{ background: `rgba(26, 22, 20, ${backdropOpacity})` }}
+      onClick={() => {
+        if (closingRef.current) return
+        closingRef.current = true
+        setClosing(true)
+        setSheetDragging(false)
+        const h = sheetRef.current?.offsetHeight ?? 480
+        const sheet = sheetRef.current
+        if (sheet) {
+          sheet.classList.add('is-closing')
+          sheet.style.transition = 'transform 0.22s ease'
+          sheet.style.transform = `translate3d(0, ${h + 64}px, 0)`
+        }
+        if (backdropRef.current) {
+          backdropRef.current.style.transition =
+            'background 0.22s ease, opacity 0.22s ease'
+          backdropRef.current.style.background = 'rgba(26, 22, 20, 0)'
+        }
+        window.setTimeout(() => onCloseRef.current(), 220)
+      }}
     >
       <div
         ref={sheetRef}
-        className={`tryon-picker tryon-cart-sheet${draggingSheet ? ' is-dragging' : ''}${closing ? ' is-closing' : ''}`}
+        className={`tryon-picker tryon-cart-sheet${closing ? ' is-closing' : ''}`}
         role="dialog"
         aria-modal="true"
         aria-label={t('tryon.cartTitle')}
         onClick={(e) => e.stopPropagation()}
-        style={{ transform: `translate3d(0, ${Math.max(0, dragY)}px, 0)` }}
       >
-        <div
-          className="tryon-sheet-grab"
-          onPointerDown={onSheetPointerDown}
-          onPointerMove={onSheetPointerMove}
-          onPointerUp={onSheetPointerUp}
-          onPointerCancel={onSheetPointerUp}
-        >
+        <div ref={grabRef} className="tryon-sheet-grab">
           <div className="tryon-sheet-handle" aria-hidden="true">
             <span className="tryon-sheet-handle-bar" />
           </div>
           <header className="tryon-picker-top">
             <h3>{t('tryon.cartTitle')}</h3>
-            <button type="button" className="tryon-chip" onClick={dismissSheet}>
+            <button
+              type="button"
+              className="tryon-chip"
+              onClick={(e) => {
+                e.stopPropagation()
+                if (closingRef.current) return
+                closingRef.current = true
+                setClosing(true)
+                const h = sheetRef.current?.offsetHeight ?? 480
+                const sheet = sheetRef.current
+                if (sheet) {
+                  sheet.classList.add('is-closing')
+                  sheet.style.transition = 'transform 0.22s ease'
+                  sheet.style.transform = `translate3d(0, ${h + 64}px, 0)`
+                }
+                if (backdropRef.current) {
+                  backdropRef.current.style.transition =
+                    'background 0.22s ease, opacity 0.22s ease'
+                  backdropRef.current.style.background = 'rgba(26, 22, 20, 0)'
+                }
+                window.setTimeout(() => onCloseRef.current(), 220)
+              }}
+            >
               {t('tryon.pickClose')}
             </button>
           </header>
