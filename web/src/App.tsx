@@ -248,9 +248,9 @@ export default function App() {
           <header className="landing-top">
             <p className="brand">Lilly</p>
             <h1>{t('landing.headline')}</h1>
-            <p className="lead">{t('landing.lead')}</p>
           </header>
           <footer className="landing-bottom">
+            <p className="landing-tip">{t('landing.tip')}</p>
             <div className="cta-group">
               <button
                 type="button"

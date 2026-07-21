@@ -124,6 +124,16 @@
   padding-top: 0.75rem;
 }
 
+.landing-tip {
+  margin: 0 0 0.85rem;
+  max-width: 28ch;
+  font-size: clamp(0.78rem, 2.6vw, 0.92rem);
+  line-height: 1.4;
+  letter-spacing: 0.01em;
+  color: rgba(255, 248, 243, 0.72);
+  animation: rise 0.8s 0.28s ease both;
+}
+
 .cta-group {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -197,6 +207,11 @@
   animation: rise 0.8s 0.1s ease both;
 }
 
+.landing .brand {
+  font-size: clamp(4rem, 18vw, 6.75rem);
+  margin: 0 0 0.55rem;
+}
+
 .brand.compact {
   font-size: 1.4rem;
   letter-spacing: -0.02em;
@@ -207,10 +222,10 @@
 .landing h1 {
   font-family: var(--font-display);
   font-weight: 700;
-  font-size: clamp(1.05rem, 3.6vw, 1.45rem);
-  line-height: 1.25;
-  margin: 0 0 0.45rem;
-  max-width: 22ch;
+  font-size: clamp(1.15rem, 4vw, 1.65rem);
+  line-height: 1.2;
+  margin: 0;
+  max-width: 16ch;
   animation: rise 0.8s 0.2s ease both;
 }
 
@@ -1592,15 +1607,16 @@
 
 @media (max-height: 620px) {
   .landing .brand {
-    font-size: clamp(2.1rem, 9vw, 3rem);
+    font-size: clamp(3rem, 14vw, 4.5rem);
   }
 
   .landing h1 {
-    font-size: 1rem;
+    font-size: 1.05rem;
   }
 
-  .lead {
-    font-size: 0.85rem;
+  .landing-tip {
+    font-size: 0.78rem;
+    margin-bottom: 0.65rem;
   }
 
   .cta-tile {

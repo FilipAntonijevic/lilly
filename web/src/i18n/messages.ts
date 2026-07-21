@@ -1,9 +1,8 @@
 export type Locale = 'sr' | 'en'
 
 const sr = {
-  'landing.headline': 'Pronađi sminku koja odgovara tvom tonu.',
-  'landing.lead':
-    'Uslikaj se ili otpremi selfie — odmah probaš preporučene dm.rs proizvode na svom licu (ten, ispod očiju, jagodice, kontura, usne, oči).',
+  'landing.headline': 'Find and test makeup now!',
+  'landing.tip': 'Use photo in natural lighting for best results.',
   'landing.catalogCount': 'Katalog: {count} artikala sa dm.rs',
   'landing.takeSelfie': 'Uslikaj selfie',
   'landing.uploadSelfie': 'Otpremi iz galerije',
@@ -198,9 +197,8 @@ const sr = {
 export type MessageKey = keyof typeof sr
 
 const en: Record<MessageKey, string> = {
-  'landing.headline': 'Find makeup that matches your skin tone.',
-  'landing.lead':
-    'Take or upload a selfie — instantly try recommended dm.rs products on your face (base, under-eyes, cheeks, contour, lips, eyes).',
+  'landing.headline': 'Find and test makeup now!',
+  'landing.tip': 'Use photo in natural lighting for best results.',
   'landing.catalogCount': 'Catalog: {count} products from dm.rs',
   'landing.takeSelfie': 'Take a selfie',
   'landing.uploadSelfie': 'Upload from gallery',
