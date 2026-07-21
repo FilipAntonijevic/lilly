@@ -6,6 +6,7 @@ import {
 } from 'react'
 import { useLanguage } from '../i18n/LanguageContext'
 import { buildDmCartUrl } from '../lib/dmCartUrl'
+import { tickHaptic } from '../lib/haptics'
 import type { MakeupProduct } from '../types'
 
 interface TryOnCartSheetProps {
@@ -30,16 +31,6 @@ function formatPriceRsd(
 function optimizeImageUrl(url?: string): string | undefined {
   if (!url) return undefined
   return url.replace(/h_320,w_320/g, 'h_480,w_480')
-}
-
-function tickHaptic() {
-  try {
-    if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
-      navigator.vibrate(10)
-    }
-  } catch {
-    /* unsupported / denied */
-  }
 }
 
 const SWIPE_THRESHOLD_PX = 88

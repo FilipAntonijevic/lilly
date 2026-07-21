@@ -8,6 +8,7 @@ import { analyzeCapturedImage } from './lib/analyzeFace'
 import { uploadCaptureBundle } from './lib/calibrationUpload'
 import { preloadFaceLandmarker } from './lib/faceLandmarker'
 import { buildFaceRoutine } from './lib/faceRoutine'
+import { tickHaptic } from './lib/haptics'
 import type {
   AppPhase,
   CaptureBundle,
@@ -70,6 +71,27 @@ export default function App() {
     void loadActiveCatalog().then(setCatalog)
     // Warm MediaPipe early so shutter analysis stays snappy.
     preloadFaceLandmarker()
+  }, [])
+
+  useEffect(() => {
+    function onPointerDown(event: PointerEvent) {
+      const target = event.target
+      if (!(target instanceof Element)) return
+      const control = target.closest(
+        'button, [role="button"], [role="tab"], [role="option"], [role="slider"], a.zone-product-card',
+      )
+      if (!(control instanceof HTMLElement)) return
+      if (
+        control instanceof HTMLButtonElement ||
+        control instanceof HTMLInputElement
+      ) {
+        if (control.disabled) return
+      }
+      if (control.getAttribute('aria-disabled') === 'true') return
+      tickHaptic()
+    }
+    document.addEventListener('pointerdown', onPointerDown, true)
+    return () => document.removeEventListener('pointerdown', onPointerDown, true)
   }, [])
 
   function resetToLanding() {

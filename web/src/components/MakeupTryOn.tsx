@@ -115,9 +115,6 @@ export function MakeupTryOn({
   polygonsRef.current = polygons
   const landmarksRef = useRef(landmarks)
   landmarksRef.current = landmarks
-  const filtersOnRef = useRef(filtersOn)
-  filtersOnRef.current = filtersOn
-
   const zoneTabs = useMemo(() => {
     return TRYON_ZONE_ORDER.map((zoneId) => {
       const zone = routine.find((z) => z.zoneId === zoneId)
@@ -157,7 +154,8 @@ export function MakeupTryOn({
 
       const current = layersRef.current
       const drag = intensityDragRef.current
-      const on = filtersOnRef.current
+      // Always paint makeup onto the canvas. Filters off shows the original
+      // photo overlay instantly — no need to wait for a clear/repaint.
       const paintLayers = {} as Record<
         FaceZoneId,
         { intensity: number; product: MakeupProduct | null }
@@ -167,7 +165,7 @@ export function MakeupTryOn({
         let intensity = layer?.intensity ?? 0
         if (drag && drag.zone === zoneId) intensity = drag.value
         paintLayers[zoneId] = {
-          intensity: on ? intensity : 0,
+          intensity,
           product: layer?.product ?? null,
         }
       }
@@ -215,7 +213,7 @@ export function MakeupTryOn({
         paintRafRef.current = 0
       }
     }
-  }, [imageReady, polygons, layers, landmarks, filtersOn])
+  }, [imageReady, polygons, layers, landmarks])
 
   function updateActiveLayer(patch: Partial<ZoneLayerState>) {
     const nextPatch =
@@ -297,6 +295,13 @@ export function MakeupTryOn({
             ref={canvasRef}
             className="tryon-canvas"
             aria-label={t('tryon.canvasLabel')}
+          />
+          <img
+            className={`tryon-original${filtersOn ? ' is-hidden' : ''}`}
+            src={photoUrl}
+            alt=""
+            draggable={false}
+            aria-hidden={filtersOn}
           />
           <button
             type="button"

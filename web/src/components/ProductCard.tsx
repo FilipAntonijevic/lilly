@@ -8,18 +8,8 @@ import {
 } from 'react'
 import type { MakeupProduct } from '../types'
 import { useLanguage } from '../i18n/LanguageContext'
+import { tickHaptic } from '../lib/haptics'
 import { findShadeVariants } from '../lib/shadeFamilies'
-
-/** Short light tap — same feel for press and drag-enter. */
-function tickHaptic() {
-  try {
-    if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
-      navigator.vibrate(8)
-    }
-  } catch {
-    /* unsupported / denied */
-  }
-}
 
 function formatPriceRsd(
   price: number | undefined,
