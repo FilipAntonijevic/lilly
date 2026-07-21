@@ -86,6 +86,8 @@ export function MakeupTryOn({
   )
   const [pickerOpen, setPickerOpen] = useState(false)
   const [cartOpen, setCartOpen] = useState(false)
+  /** Master switch: hide all applied makeup without wiping intensities. */
+  const [filtersOn, setFiltersOn] = useState(true)
 
   const polygons = useMemo(() => buildTryOnPolygons(landmarks), [landmarks])
 
@@ -154,7 +156,7 @@ export function MakeupTryOn({
     for (const zoneId of TRYON_ZONE_ORDER) {
       const layer = layers[zoneId]
       paintLayers[zoneId] = {
-        intensity: layer?.intensity ?? 0,
+        intensity: filtersOn ? (layer?.intensity ?? 0) : 0,
         product: layer?.product ?? null,
       }
     }
@@ -167,7 +169,7 @@ export function MakeupTryOn({
       layers: paintLayers,
       landmarks,
     })
-  }, [imageReady, polygons, layers, landmarks])
+  }, [imageReady, polygons, layers, landmarks, filtersOn])
 
   function updateActiveLayer(patch: Partial<ZoneLayerState>) {
     setLayers((prev) => ({
@@ -231,6 +233,20 @@ export function MakeupTryOn({
             className="tryon-canvas"
             aria-label={t('tryon.canvasLabel')}
           />
+          <button
+            type="button"
+            className={`tryon-filters-toggle${filtersOn ? ' is-on' : ''}`}
+            aria-pressed={filtersOn}
+            aria-label={t('tryon.allFilters')}
+            onClick={() => setFiltersOn((on) => !on)}
+          >
+            <span className="tryon-filters-toggle-label">
+              {t('tryon.allFilters')}
+            </span>
+            <span className="tryon-filters-toggle-state">
+              {filtersOn ? t('tryon.allFiltersOn') : t('tryon.allFiltersOff')}
+            </span>
+          </button>
         </div>
 
         <div
