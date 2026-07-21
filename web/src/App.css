@@ -524,6 +524,63 @@
   margin: -0.75rem 0 1.5rem;
 }
 
+.results-tryon-cta {
+  margin-top: 2rem;
+  padding-top: 0.25rem;
+  padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+}
+
+.btn-tryon-test {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  min-height: 3.75rem;
+  padding: 1.05rem 1.5rem;
+  border-radius: 1rem;
+  background: var(--ink);
+  color: var(--foam);
+  font-family: var(--font-display);
+  font-size: clamp(1.15rem, 3.6vw, 1.4rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+
+.btn-tryon-test:hover {
+  transform: translateY(-1px);
+  background: #2a2421;
+}
+
+.btn-tryon-test:active {
+  transform: translateY(0);
+}
+
+.tryon-screen {
+  padding: clamp(1.25rem, 4vw, 3rem);
+  max-width: 560px;
+  margin: 0 auto;
+  clear: both;
+  animation: rise 0.55s ease both;
+}
+
+.tryon-screen-top {
+  display: grid;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.tryon-back {
+  justify-self: start;
+}
+
+.tryon-screen-heading h2 {
+  font-family: var(--font-display);
+  margin: 0;
+  letter-spacing: -0.02em;
+  font-size: clamp(1.8rem, 4vw, 2.4rem);
+}
+
 .results-profile {
   margin-bottom: 2.25rem;
 }

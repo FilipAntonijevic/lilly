@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { CameraStage } from './components/CameraStage'
 import { LanguageToggle } from './components/LanguageToggle'
 import { ResultsPanel } from './components/ResultsPanel'
+import { TryOnPanel } from './components/TryOnPanel'
 import { loadActiveCatalog } from './data/catalog'
 import { useLanguage } from './i18n/LanguageContext'
 import { analyzeCapturedImage } from './lib/analyzeFace'
@@ -17,7 +18,7 @@ import type {
 } from './types'
 import './App.css'
 
-type HistoryPhase = 'idle' | 'camera' | 'results'
+type HistoryPhase = 'idle' | 'camera' | 'results' | 'tryon'
 
 function writeHistory(phase: HistoryPhase, mode: 'push' | 'replace') {
   const hash = phase === 'idle' ? '' : `#${phase}`
@@ -88,6 +89,14 @@ export default function App() {
         setRoutine([])
         setPhotoUrl(null)
         setPhase('camera')
+        return
+      }
+      if (next === 'results') {
+        setPhase('results')
+        return
+      }
+      if (next === 'tryon') {
+        setPhase('tryon')
         return
       }
       resetToLanding()
@@ -179,6 +188,15 @@ export default function App() {
     setPhotoUrl(null)
     setPhase('idle')
     writeHistory('idle', 'replace')
+  }
+
+  function openTryOn() {
+    setPhase('tryon')
+    writeHistory('tryon', 'push')
+  }
+
+  function backToResults() {
+    window.history.back()
   }
 
   return (
@@ -280,6 +298,19 @@ export default function App() {
             routine={routine}
             catalog={catalog.products}
             onRetake={retake}
+            onTestProducts={openTryOn}
+          />
+        </>
+      )}
+
+      {phase === 'tryon' && photoUrl && profile && (
+        <>
+          <LanguageToggle className="lang-toggle-results" />
+          <TryOnPanel
+            photoUrl={photoUrl}
+            landmarks={profile.landmarks}
+            routine={routine}
+            onBack={backToResults}
           />
         </>
       )}
