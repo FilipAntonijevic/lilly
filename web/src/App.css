@@ -221,10 +221,11 @@
 .landing h1 {
   font-family: var(--font-display);
   font-weight: 700;
-  font-size: clamp(1.15rem, 4vw, 1.65rem);
+  font-size: clamp(1.05rem, 4.2vw, 1.65rem);
   line-height: 1.2;
   margin: 0;
-  max-width: 16ch;
+  max-width: none;
+  white-space: nowrap;
   animation: rise 0.8s 0.2s ease both;
 }
 
@@ -1612,7 +1613,7 @@
   }
 
   .landing-tip {
-    font-size: 0.78rem;
+    font-size: 1.17rem;
     margin-bottom: 0.65rem;
   }
 
