@@ -108,16 +108,25 @@ export function paintSoftMakeup(options: {
   })
 
   paintZoneIfActive(layers, 'cheeks', (alpha) => {
+    const faceOval = polygons.find((p) => p.id === 'faceOval')
+    // Slightly inset so blush never bleeds past the jaw / temple edge.
+    const faceClip =
+      faceOval && faceOval.points.length >= 3
+        ? expandRing(faceOval.points, -0.012)
+        : null
     for (const id of ['leftCheek', 'rightCheek'] as const) {
       const poly = polygons.find((p) => p.id === id)
       if (!poly || poly.kind !== 'circle' || poly.points.length < 2) continue
-      const mask = softCircleMask(
+      let mask = softCircleMask(
         poly.points[0]!,
         circleRadius(poly),
         width,
         height,
         minSide * 0.028,
       )
+      if (faceClip) {
+        mask = clipMaskToRing(mask, faceClip, width, height)
+      }
       paintColorThroughMask(ctx, mask, layers.cheeks.product!.shadeHex, alpha, 'overlay')
       paintColorThroughMask(ctx, mask, layers.cheeks.product!.shadeHex, alpha * 0.55, 'soft-light')
       // Pigment pass so blush reads even on muted catalog hexes.
@@ -549,6 +558,25 @@ function softCircleMask(
   mctx.arc(cx, cy, r, 0, Math.PI * 2)
   mctx.fill()
   return featherMask(mask, blurPx)
+}
+
+/** Keep blush (etc.) inside the face oval — soft circles often spill past the jaw. */
+function clipMaskToRing(
+  mask: HTMLCanvasElement,
+  ring: Point2D[],
+  width: number,
+  height: number,
+): HTMLCanvasElement {
+  if (ring.length < 3) return mask
+  const mctx = mask.getContext('2d')
+  if (!mctx) return mask
+  mctx.save()
+  mctx.globalCompositeOperation = 'destination-in'
+  mctx.fillStyle = '#fff'
+  pathSmoothRing(mctx, ring, width, height)
+  mctx.fill()
+  mctx.restore()
+  return mask
 }
 
 function punchSmoothRing(

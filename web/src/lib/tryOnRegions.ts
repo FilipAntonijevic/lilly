@@ -106,16 +106,16 @@ export function buildTryOnPolygons(
       const centerLm = centerIdx != null ? landmarks[centerIdx] : null
       if (!centerLm) continue
       // faceScale ≈ inter-ocular distance in norm space (~0.12–0.25).
-      // Blush apple needs ~0.4× that — older 0.085 made ~12px dots that never showed.
-      const radius = faceScale * 0.42
+      // Keep blush on the apple; paint path also clips to the face oval.
+      const radius = faceScale * 0.34
       const center = { x: clamp01(centerLm.x), y: clamp01(centerLm.y) }
-      // Blush sits slightly toward the ear / temple on each cheek.
+      // Slightly toward the nose / down so the soft circle stays on skin.
       if (id === 'leftCheek') {
-        center.x = clamp01(center.x - faceScale * 0.04)
-        center.y = clamp01(center.y + faceScale * 0.02)
+        center.x = clamp01(center.x + faceScale * 0.02)
+        center.y = clamp01(center.y + faceScale * 0.03)
       } else if (id === 'rightCheek') {
-        center.x = clamp01(center.x + faceScale * 0.04)
-        center.y = clamp01(center.y + faceScale * 0.02)
+        center.x = clamp01(center.x - faceScale * 0.02)
+        center.y = clamp01(center.y + faceScale * 0.03)
       }
       out.push({
         id,
