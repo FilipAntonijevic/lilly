@@ -87,7 +87,7 @@ const sr = {
   'tryon.cartCount': 'Korpa · {count}',
   'tryon.cartEmpty': 'Korpa je prazna.',
   'tryon.cartRemove': 'Ukloni',
-  'tryon.cartOpenDm': 'Otvori na dm',
+  'tryon.viewInShop': 'View in shop',
 
   'product.priceUnavailable': 'Cena nije dostupna',
   'product.shade': 'nijansa {name}',
@@ -282,7 +282,7 @@ const en: Record<MessageKey, string> = {
   'tryon.cartCount': 'Cart · {count}',
   'tryon.cartEmpty': 'Your cart is empty.',
   'tryon.cartRemove': 'Remove',
-  'tryon.cartOpenDm': 'Open on dm',
+  'tryon.viewInShop': 'View in shop',
 
   'product.priceUnavailable': 'Price unavailable',
   'product.shade': 'shade {name}',

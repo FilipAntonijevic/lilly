@@ -5,6 +5,7 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from 'react'
 import { useLanguage } from '../i18n/LanguageContext'
+import { buildDmCartUrl } from '../lib/dmCartUrl'
 import type { MakeupProduct } from '../types'
 
 interface TryOnCartSheetProps {
@@ -264,22 +265,33 @@ export function TryOnCartSheet({
         {items.length === 0 ? (
           <p className="tryon-picker-empty">{t('tryon.cartEmpty')}</p>
         ) : (
-          <ul className="tryon-picker-list tryon-cart-list">
-            {items.map((product) => (
-              <CartSwipeItem
-                key={product.id}
-                product={product}
-                priceLabel={formatPriceRsd(
-                  product.priceRsd,
-                  t('product.priceUnavailable'),
-                  locale,
-                )}
-                openDmLabel={t('tryon.cartOpenDm')}
-                removeLabel={t('tryon.cartRemove')}
-                onRemove={() => onRemove(product.id)}
-              />
-            ))}
-          </ul>
+          <>
+            <ul className="tryon-picker-list tryon-cart-list">
+              {items.map((product) => (
+                <CartSwipeItem
+                  key={product.id}
+                  product={product}
+                  priceLabel={formatPriceRsd(
+                    product.priceRsd,
+                    t('product.priceUnavailable'),
+                    locale,
+                  )}
+                  removeLabel={t('tryon.cartRemove')}
+                  onRemove={() => onRemove(product.id)}
+                />
+              ))}
+            </ul>
+            <footer className="tryon-cart-sheet-footer">
+              <a
+                className="btn-tryon-cart tryon-cart-view-shop"
+                href={buildDmCartUrl(items)}
+                target="_blank"
+                rel="noreferrer"
+              >
+                {t('tryon.viewInShop')}
+              </a>
+            </footer>
+          </>
         )}
       </div>
     </div>
@@ -289,13 +301,11 @@ export function TryOnCartSheet({
 function CartSwipeItem({
   product,
   priceLabel,
-  openDmLabel,
   removeLabel,
   onRemove,
 }: {
   product: MakeupProduct
   priceLabel: string
-  openDmLabel: string
   removeLabel: string
   onRemove: () => void
 }) {
@@ -421,22 +431,14 @@ function CartSwipeItem({
             <div className="tryon-cart-item-footer">
               <span className="tryon-picker-price">{priceLabel}</span>
               <div className="tryon-cart-item-actions">
-                {product.url ? (
-                  <a
-                    className="tryon-chip"
-                    href={product.url}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    {openDmLabel}
-                  </a>
-                ) : null}
                 <button
                   type="button"
-                  className="tryon-chip"
+                  className="tryon-cart-remove"
                   onClick={finishRemove}
+                  aria-label={removeLabel}
+                  title={removeLabel}
                 >
-                  {removeLabel}
+                  <TrashIcon />
                 </button>
               </div>
             </div>
@@ -444,5 +446,25 @@ function CartSwipeItem({
         </div>
       </div>
     </li>
+  )
+}
+
+function TrashIcon() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 16 16"
+      fill="none"
+      aria-hidden="true"
+    >
+      <path
+        d="M3.5 4.5h9M6.5 4.5V3.25A.75.75 0 0 1 7.25 2.5h1.5a.75.75 0 0 1 .75.75V4.5m1.5 0v8.25a.75.75 0 0 1-.75.75h-4.5a.75.75 0 0 1-.75-.75V4.5m1.5 2.25v4.5m2.25-4.5v4.5"
+        stroke="currentColor"
+        strokeWidth="1.35"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
   )
 }

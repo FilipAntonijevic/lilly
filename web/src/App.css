@@ -508,8 +508,10 @@
 
 .tryon-cart-list {
   margin: 0;
-  padding: 0 0 0.5rem;
+  padding: 0 0 0.25rem;
   gap: 0.7rem;
+  min-height: 0;
+  overflow: auto;
 }
 
 .tryon-cart-item {
@@ -647,10 +649,26 @@
   flex: 0 0 auto;
 }
 
-.tryon-cart-item-actions .tryon-chip {
-  font-size: 0.74rem;
-  padding: 0.35rem 0.55rem;
-  white-space: nowrap;
+.tryon-cart-remove {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.85rem;
+  height: 1.85rem;
+  padding: 0;
+  border-radius: 0.45rem;
+  border: 1px solid var(--line);
+  background: rgba(26, 22, 20, 0.04);
+  color: var(--ink-soft);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.tryon-cart-remove:hover {
+  background: rgba(201, 90, 78, 0.12);
+  border-color: rgba(201, 90, 78, 0.35);
+  color: #a34438;
 }
 
 .tryon-stage {
@@ -860,6 +878,20 @@
 .tryon-picker.tryon-cart-sheet {
   /* Win over .tryon-picker { animation: rise } */
   animation: cart-sheet-rise 0.28s ease both;
+  grid-template-rows: auto 1fr auto;
+  padding-bottom: 0.85rem;
+}
+
+.tryon-cart-sheet-footer {
+  display: grid;
+  padding-top: 0.35rem;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.tryon-cart-view-shop {
+  text-decoration: none;
+  min-height: 3.5rem;
+  font-size: 1.12rem;
 }
 
 @keyframes cart-sheet-rise {
