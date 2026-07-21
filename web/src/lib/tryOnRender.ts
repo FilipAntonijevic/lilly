@@ -3,7 +3,7 @@ import type { EditableTryOnPolygon, Point2D } from './tryOnRegions'
 import {
   LIPS_OUTLINE_SCALE,
   TRYON_BASE_ALPHA,
-  expandPolygonFromCentroid,
+  expandLowerLipOutline,
 } from './tryOnRegions'
 
 /**
@@ -247,13 +247,13 @@ function paintLips(
   const outer =
     editable && editable.length >= 3
       ? editable
-      : expandPolygonFromCentroid(
+      : expandLowerLipOutline(
           pointsFromIndices(landmarks, OUTER_LIPS),
           LIPS_OUTLINE_SCALE,
         )
   if (outer.length < 3) return
 
-  // Editable / built outline is already +5%; tiny normal expand for AA only.
+  // Lower lip already +5% in outline; tiny normal expand for AA only.
   const widened = expandRing(outer, 0.0015)
   const mask = createCanvas(width, height)
   const mctx = mask.getContext('2d')

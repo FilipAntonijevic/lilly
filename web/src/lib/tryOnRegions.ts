@@ -89,8 +89,10 @@ export const TRYON_ZONE_ORDER: FaceZoneId[] = [
   'eyes',
 ]
 
-/** Grow lip outline past vermilion so lipstick slightly overlaps skin (better than gaps). */
+/** Grow only the lower vermilion past the landmark outline (+5% from lip centroid). */
 export const LIPS_OUTLINE_SCALE = 1.05
+/** OUTER_LIPS / try-on lips ring: upper cupid arc first, then lower. */
+export const LIPS_UPPER_POINT_COUNT = 11
 
 export function buildTryOnPolygons(
   landmarks: FaceLandmarkPoint[],
@@ -134,7 +136,7 @@ export function buildTryOnPolygons(
     }
     if (points.length < 3) continue
     if (id === 'lips') {
-      points = expandPolygonFromCentroid(points, LIPS_OUTLINE_SCALE)
+      points = expandLowerLipOutline(points, LIPS_OUTLINE_SCALE)
     }
     if (id === 'underEyeLeft' || id === 'underEyeRight') {
       points = deepenUnderEyeCrescent(points)
@@ -201,6 +203,35 @@ export function expandPolygonFromCentroid(
     x: clamp01(cx + (p.x - cx) * scale),
     y: clamp01(cy + (p.y - cy) * scale),
   }))
+}
+
+/**
+ * Keep upper lip on MediaPipe outline; scale only the lower lip outward
+ * so lipstick overlaps skin below without lifting the cupid’s bow.
+ */
+export function expandLowerLipOutline(
+  points: Point2D[],
+  scale: number = LIPS_OUTLINE_SCALE,
+): Point2D[] {
+  if (points.length < 3 || !(scale > 0)) return points.map((p) => ({ ...p }))
+  let sx = 0
+  let sy = 0
+  for (const p of points) {
+    sx += p.x
+    sy += p.y
+  }
+  const cx = sx / points.length
+  const cy = sy / points.length
+
+  const useRingSplit = points.length >= LIPS_UPPER_POINT_COUNT + 3
+  return points.map((p, i) => {
+    const isLower = useRingSplit ? i >= LIPS_UPPER_POINT_COUNT : p.y >= cy
+    if (!isLower) return { x: p.x, y: p.y }
+    return {
+      x: clamp01(cx + (p.x - cx) * scale),
+      y: clamp01(cy + (p.y - cy) * scale),
+    }
+  })
 }
 
 /** Lower-lash (first 9) stays put; infraorbital edge drops slightly for tear-trough fill. */
