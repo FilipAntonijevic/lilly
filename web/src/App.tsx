@@ -18,6 +18,7 @@ import type {
 import './App.css'
 
 type HistoryPhase = 'idle' | 'camera' | 'tryon'
+type CaptureSource = 'camera' | 'upload'
 
 function writeHistory(phase: HistoryPhase, mode: 'push' | 'replace') {
   const hash = phase === 'idle' ? '' : `#${phase}`
@@ -62,6 +63,8 @@ export default function App() {
   } | null>(null)
   const analysisIdRef = useRef(0)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  /** How the user got their current photo — Nova slika repeats this path. */
+  const [captureSource, setCaptureSource] = useState<CaptureSource>('camera')
 
   useEffect(() => {
     void loadActiveCatalog().then(setCatalog)
@@ -104,11 +107,13 @@ export default function App() {
   }, [])
 
   function startCamera() {
+    setCaptureSource('camera')
     setPhase('camera')
     writeHistory('camera', 'push')
   }
 
   function openUploadPicker() {
+    setCaptureSource('upload')
     fileInputRef.current?.click()
   }
 
@@ -182,11 +187,17 @@ export default function App() {
 
   function retake() {
     analysisIdRef.current += 1
+    if (captureSource === 'upload') {
+      // Same path as landing upload — gallery picker; cancel keeps try-on.
+      fileInputRef.current?.click()
+      return
+    }
+    // Came from selfie — jump straight back into the camera.
     setProfile(null)
     setRoutine([])
     setPhotoUrl(null)
-    setPhase('idle')
-    writeHistory('idle', 'replace')
+    setPhase('camera')
+    writeHistory('camera', 'replace')
   }
 
   return (
