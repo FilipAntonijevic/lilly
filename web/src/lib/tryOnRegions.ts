@@ -77,7 +77,8 @@ export const TRYON_BASE_ALPHA: Record<FaceZoneId, number> = {
   cheeks: 0.78,
   contour: 0.55,
   lips: 0.95,
-  eyes: 0.72,
+  // 2× previous strength: slider 50% ≈ old 100%, slider 100% ≈ old 200%.
+  eyes: 1.44,
 }
 
 export const TRYON_ZONE_ORDER: FaceZoneId[] = [
