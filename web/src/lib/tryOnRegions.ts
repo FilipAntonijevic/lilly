@@ -71,17 +71,17 @@ export const TRYON_BLEND: Record<FaceZoneId, GlobalCompositeOperation> = {
   underEye: 'soft-light',
   cheeks: 'soft-light',
   contour: 'multiply',
-  lips: 'source-over',
+  lips: 'soft-light',
   eyes: 'soft-light',
 }
 
 export const TRYON_BASE_ALPHA: Record<FaceZoneId, number> = {
-  faceBase: 0.42,
-  underEye: 0.5,
-  cheeks: 0.62,
-  contour: 0.45,
-  lips: 0.88,
-  eyes: 0.7,
+  faceBase: 0.38,
+  underEye: 0.48,
+  cheeks: 0.58,
+  contour: 0.42,
+  lips: 0.9,
+  eyes: 0.72,
 }
 
 export const TRYON_ZONE_ORDER: FaceZoneId[] = [

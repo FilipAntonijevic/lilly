@@ -17,7 +17,7 @@ import {
   type EditableTryOnPolygon,
   type Point2D,
 } from '../lib/tryOnRegions'
-import { paintSoftMakeup } from '../lib/tryOnRender'
+import { paintSoftMakeup, pathSmoothRing } from '../lib/tryOnRender'
 import { shadeFamilyKey } from '../lib/shadeFamilies'
 import type {
   FaceLandmarkPoint,
@@ -176,7 +176,7 @@ export function MakeupTryOn({
         ctx.arc(cx, cy, Math.max(4, r), 0, Math.PI * 2)
         ctx.stroke()
       } else {
-        pathPolygon(ctx, poly.points, width, height)
+        pathSmoothRing(ctx, poly.points, width, height)
         ctx.stroke()
       }
       ctx.restore()
@@ -460,22 +460,6 @@ export function MakeupTryOn({
       )}
     </div>
   )
-}
-
-function pathPolygon(
-  ctx: CanvasRenderingContext2D,
-  points: Point2D[],
-  width: number,
-  height: number,
-) {
-  ctx.beginPath()
-  points.forEach((point, i) => {
-    const x = point.x * width
-    const y = point.y * height
-    if (i === 0) ctx.moveTo(x, y)
-    else ctx.lineTo(x, y)
-  })
-  ctx.closePath()
 }
 
 function clamp01(n: number): number {
