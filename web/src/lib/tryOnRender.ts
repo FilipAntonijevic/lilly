@@ -5,7 +5,8 @@ import { TRYON_BASE_ALPHA, TRYON_BLEND } from './tryOnRegions'
 /**
  * Makeup compositing inspired by ModiFace / Sephora Virtual Artist:
  * - Lips: hard cut at (slightly widened) vermilion border — no spray feather
- * - Cheeks / under-eye / contour: soft circular brushes
+ * - Cheeks / under-eye: soft circular brushes on cheek / under-eye anchors
+ * - Contour: MediaPipe cheek-hollow + jaw strips (feathered polygons)
  * - Eyes: lid + crease + outer-corner layers, eye opening punched out
  */
 
@@ -66,9 +67,16 @@ export function paintSoftMakeup(options: {
   paintZoneIfActive(layers, 'contour', (alpha) => {
     for (const id of ['jawLeft', 'jawRight'] as const) {
       const poly = polygons.find((p) => p.id === id)
-      if (!poly || poly.kind !== 'circle' || poly.points.length < 2) continue
-      const mask = softCircleMask(poly.points[0], circleRadius(poly), width, height, minSide * 0.035)
-      compositeMask(ctx, mask, layers.contour.product!.shadeHex, alpha * 0.85, TRYON_BLEND.contour)
+      if (!poly || poly.points.length < 3) continue
+      // Elongated cheek-hollow strip: blur edges only (no radial that eats the ends).
+      const mask = softStripMask(poly.points, width, height, minSide * 0.022)
+      compositeMask(
+        ctx,
+        mask,
+        layers.contour.product!.shadeHex,
+        alpha,
+        TRYON_BLEND.contour,
+      )
     }
   })
 
@@ -215,6 +223,20 @@ function softCircleMask(
   mctx.fillStyle = gradient
   mctx.beginPath()
   mctx.arc(cx, cy, r, 0, Math.PI * 2)
+  mctx.fill()
+  return featherMask(mask, blurPx)
+}
+
+function softStripMask(
+  points: Point2D[],
+  width: number,
+  height: number,
+  blurPx: number,
+): HTMLCanvasElement {
+  const mask = createCanvas(width, height)
+  const mctx = mask.getContext('2d')!
+  mctx.fillStyle = '#fff'
+  pathFromPoints(mctx, points, width, height)
   mctx.fill()
   return featherMask(mask, blurPx)
 }

@@ -63,9 +63,9 @@ export const MAKEUP_REGIONS = {
 export type MakeupRegionKey = keyof typeof MAKEUP_REGIONS
 
 /**
- * Editable rings (polygons). Soft circular brushes (cheeks, etc.) are built
- * in tryOnRegions from single mesh anchors — not listed here.
- * Eyes: lid outline for handles; paint uses lid/crease/outer layers in tryOnRender.
+ * Editable try-on shapes keyed for UI handles.
+ * Contour / face / lips / eyes = MediaPipe landmark rings.
+ * Cheeks & under-eye = soft circular brushes (built in tryOnRegions).
  */
 export const TRYON_POLYGON_INDICES = {
   leftEye: [247, 30, 29, 27, 28, 56, 190, 173, 157, 158, 159, 160, 161, 246],
@@ -78,9 +78,21 @@ export const TRYON_POLYGON_INDICES = {
   rightCheek: [425],
   underEyeLeft: [111],
   underEyeRight: [340],
-  jawLeft: [172],
-  jawRight: [397],
-  faceOval: [10, 297, 332, 454, 361, 397, 152, 172, 58, 234, 127, 54, 103],
+  /** Cheek hollow + jaw strip (industry contour / bronzer) */
+  jawLeft: [
+    234, 93, 132, 58, 172, 136, 150, 135, 214, 192, 213, 147, 123, 116, 143,
+    227,
+  ],
+  jawRight: [
+    454, 323, 361, 288, 397, 365, 379, 364, 434, 416, 433, 376, 352, 345, 372,
+    447,
+  ],
+  /** Official MediaPipe face oval */
+  faceOval: [
+    10, 338, 297, 332, 284, 251, 389, 356, 454, 323, 361, 288, 397, 365, 379,
+    378, 400, 377, 152, 148, 176, 149, 150, 136, 172, 58, 132, 93, 234, 127,
+    162, 21, 54, 103, 67, 109,
+  ],
 } as const
 
 export type TryOnPolygonId = keyof typeof TRYON_POLYGON_INDICES

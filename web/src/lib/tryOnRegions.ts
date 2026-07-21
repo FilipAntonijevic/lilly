@@ -51,24 +51,19 @@ export const TRYON_LABEL_BY_POLYGON: Record<TryOnPolygonId, MessageKey> = {
   faceOval: 'tryon.region.faceOval',
 }
 
-/** Regions edited/rendered as soft circles (center + rim handle). */
+/** Soft circular brushes only — contour is a landmark polygon again. */
 export const CIRCLE_REGIONS: ReadonlySet<TryOnPolygonId> = new Set([
   'leftCheek',
   'rightCheek',
   'underEyeLeft',
   'underEyeRight',
-  'jawLeft',
-  'jawRight',
 ])
 
-/** Cheek / under-eye / jaw brush centers in the mesh. */
 const CIRCLE_CENTER_INDEX: Partial<Record<TryOnPolygonId, number>> = {
   leftCheek: 205,
   rightCheek: 425,
   underEyeLeft: 111,
   underEyeRight: 340,
-  jawLeft: 172,
-  jawRight: 397,
 }
 
 export const TRYON_BLEND: Record<FaceZoneId, GlobalCompositeOperation> = {
@@ -80,12 +75,11 @@ export const TRYON_BLEND: Record<FaceZoneId, GlobalCompositeOperation> = {
   eyes: 'soft-light',
 }
 
-/** Base opacity at full intensity (1.0). */
 export const TRYON_BASE_ALPHA: Record<FaceZoneId, number> = {
   faceBase: 0.42,
   underEye: 0.5,
   cheeks: 0.62,
-  contour: 0.4,
+  contour: 0.45,
   lips: 0.72,
   eyes: 0.7,
 }
@@ -110,13 +104,18 @@ export function buildTryOnPolygons(
       const centerIdx = CIRCLE_CENTER_INDEX[id]
       const centerLm = centerIdx != null ? landmarks[centerIdx] : null
       if (!centerLm) continue
-      const radius =
-        id.startsWith('underEye')
-          ? faceScale * 0.055
-          : id.startsWith('jaw')
-            ? faceScale * 0.07
-            : faceScale * 0.09
+      const radius = id.startsWith('underEye')
+        ? faceScale * 0.05
+        : faceScale * 0.085
       const center = { x: clamp01(centerLm.x), y: clamp01(centerLm.y) }
+      // Blush sits slightly toward the ear / temple on each cheek.
+      if (id === 'leftCheek') {
+        center.x = clamp01(center.x - faceScale * 0.02)
+        center.y = clamp01(center.y + faceScale * 0.01)
+      } else if (id === 'rightCheek') {
+        center.x = clamp01(center.x + faceScale * 0.02)
+        center.y = clamp01(center.y + faceScale * 0.01)
+      }
       out.push({
         id,
         zoneId: TRYON_ZONE_BY_POLYGON[id],
