@@ -50,13 +50,6 @@ interface ZoneLayerState {
 
 const HANDLE_HIT_PX = 16
 const DEFAULT_INTENSITY = 0
-/** When user picks a shade on a non-lip zone at 0%, turn makeup on at this level. */
-const SHADE_PICK_INTENSITY = 0.7
-
-function ensurePaintIntensity(current: number, zoneId: FaceZoneId): number {
-  if (zoneId === 'lips') return 1
-  return current > 0.01 ? current : SHADE_PICK_INTENSITY
-}
 
 function initialZoneLayers(routine: FaceZoneMatch[]): Record<FaceZoneId, ZoneLayerState> {
   const layers = {} as Record<FaceZoneId, ZoneLayerState>
@@ -159,12 +152,24 @@ export function MakeupTryOn({
     ctx.clearRect(0, 0, width, height)
     ctx.drawImage(img, 0, 0, width, height)
 
+    const paintLayers = {} as Record<
+      FaceZoneId,
+      { intensity: number; product: MakeupProduct | null }
+    >
+    for (const zoneId of TRYON_ZONE_ORDER) {
+      const layer = layers[zoneId]
+      paintLayers[zoneId] = {
+        intensity: layer?.intensity ?? 0,
+        product: layer?.product ?? null,
+      }
+    }
+
     paintSoftMakeup({
       ctx,
       width,
       height,
       polygons,
-      layers,
+      layers: paintLayers,
       landmarks,
     })
 
@@ -319,11 +324,8 @@ export function MakeupTryOn({
   const lipsOn = (layers.lips?.intensity ?? 0) > 0.5
 
   function pickProductLine(product: MakeupProduct) {
-    updateActiveLayer({
-      product,
-      lineProduct: product,
-      intensity: ensurePaintIntensity(activeLayer.intensity, activeZone),
-    })
+    // Keep current intensity (including 0%) when switching products/shades.
+    updateActiveLayer({ product, lineProduct: product })
     setPickerOpen(false)
   }
 
@@ -382,10 +384,8 @@ export function MakeupTryOn({
             catalog={catalog}
             selected={activeLayer.product}
             onSelectedChange={(product) => {
-              updateActiveLayer({
-                product,
-                intensity: ensurePaintIntensity(activeLayer.intensity, activeZone),
-              })
+              // Shade swap must not reset or bump intensity.
+              updateActiveLayer({ product })
             }}
           />
         ) : (
@@ -435,6 +435,11 @@ export function MakeupTryOn({
               step={1}
               value={layersPct}
               disabled={!activeLayer.product}
+              onInput={(e) =>
+                updateActiveLayer({
+                  intensity: Number((e.target as HTMLInputElement).value) / 100,
+                })
+              }
               onChange={(e) =>
                 updateActiveLayer({ intensity: Number(e.target.value) / 100 })
               }

@@ -134,10 +134,15 @@ function paintZoneIfActive(
   paint: (alpha: number) => void,
 ): void {
   const layer = layers[zoneId]
-  if (!layer?.product || layer.intensity <= 0.01) return
-  const alpha = TRYON_BASE_ALPHA[zoneId] * layer.intensity
-  if (alpha <= 0.01) return
-  paint(alpha)
+  if (!layer?.product?.shadeHex || layer.intensity <= 0.01) return
+  const base = TRYON_BASE_ALPHA[zoneId] ?? 0.5
+  const alpha = base * layer.intensity
+  if (!(alpha > 0.01)) return
+  try {
+    paint(alpha)
+  } catch {
+    // One zone must never abort the rest of the face.
+  }
 }
 
 function paintLips(
@@ -183,9 +188,15 @@ function paintLips(
   const grooves = lipGrooveTexture(bodyMask, landmarks, width, height, minSide)
   if (grooves) {
     ctx.save()
-    ctx.globalAlpha = alpha * 0.28
     ctx.globalCompositeOperation = 'multiply'
-    ctx.drawImage(grooves, 0, 0)
+    // Bake groove strength into pixels (blend modes ignore globalAlpha inconsistently).
+    const grooveStrength = createCanvas(width, height)
+    const gctx = grooveStrength.getContext('2d')
+    if (gctx) {
+      gctx.globalAlpha = alpha * 0.28
+      gctx.drawImage(grooves, 0, 0)
+      ctx.drawImage(grooveStrength, 0, 0)
+    }
     ctx.restore()
   }
 
@@ -354,6 +365,10 @@ function eyeBandMask(
 /**
  * Paint product color through an alpha mask using a production blend mode.
  * Soft-light / multiply keep pores & lighting instead of flat paint.
+ *
+ * Important: bake coverage into the source alpha. Many browsers ignore
+ * `globalAlpha` (or apply it inconsistently) for non-source-over blends,
+ * which made the intensity slider look broken.
  */
 function paintColorThroughMask(
   ctx: CanvasRenderingContext2D,
@@ -362,17 +377,24 @@ function paintColorThroughMask(
   alpha: number,
   blend: GlobalCompositeOperation,
 ): void {
-  if (alpha <= 0.01) return
+  const coverage = Math.min(1, Math.max(0, alpha))
+  if (coverage <= 0.01) return
+
+  const fadedMask = createCanvas(mask.width, mask.height)
+  const fctx = fadedMask.getContext('2d')
+  if (!fctx) return
+  fctx.globalAlpha = coverage
+  fctx.drawImage(mask, 0, 0)
+
   const tinted = createCanvas(mask.width, mask.height)
   const tctx = tinted.getContext('2d')
   if (!tctx) return
   tctx.fillStyle = hex
   tctx.fillRect(0, 0, mask.width, mask.height)
   tctx.globalCompositeOperation = 'destination-in'
-  tctx.drawImage(mask, 0, 0)
+  tctx.drawImage(fadedMask, 0, 0)
 
   ctx.save()
-  ctx.globalAlpha = Math.min(1, Math.max(0, alpha))
   ctx.globalCompositeOperation = blend
   ctx.drawImage(tinted, 0, 0)
   ctx.restore()
