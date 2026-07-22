@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { CameraStage } from './components/CameraStage'
 import { FitOneLine } from './components/FitOneLine'
 import { LanguageToggle } from './components/LanguageToggle'
@@ -116,15 +116,22 @@ export default function App() {
       if (root) root.scrollTop = 0
     }
     top()
-    // Safari restores scroll after popstate/paint — keep winning for a beat.
     requestAnimationFrame(() => {
       top()
       requestAnimationFrame(top)
     })
     window.setTimeout(top, 0)
     window.setTimeout(top, 50)
-    window.setTimeout(top, 150)
-    window.setTimeout(top, 300)
+  }
+
+  function clearLandingBodyLock() {
+    document.documentElement.classList.remove('is-landing')
+    document.body.style.removeProperty('position')
+    document.body.style.removeProperty('top')
+    document.body.style.removeProperty('left')
+    document.body.style.removeProperty('right')
+    document.body.style.removeProperty('width')
+    document.body.style.removeProperty('overflow')
   }
 
   function resetToLanding() {
@@ -132,53 +139,26 @@ export default function App() {
     setProfile(null)
     setRoutine([])
     setPhotoUrl(null)
+    clearLandingBodyLock()
     snapLandingScroll()
     setPhase('idle')
   }
 
-  // Landing must always start at the top — lock body so try-on scroll can't leak in.
-  useEffect(() => {
-    if (phase !== 'idle') {
-      document.documentElement.classList.remove('is-landing')
-      document.body.style.removeProperty('position')
-      document.body.style.removeProperty('top')
-      document.body.style.removeProperty('left')
-      document.body.style.removeProperty('right')
-      document.body.style.removeProperty('width')
-      document.body.style.removeProperty('overflow')
-      return
-    }
-
+  // Snap before paint — no body { position:fixed } (that squished the landing).
+  useLayoutEffect(() => {
+    clearLandingBodyLock()
+    if (phase !== 'idle') return
     snapLandingScroll()
-    document.documentElement.classList.add('is-landing')
-    document.body.style.position = 'fixed'
-    document.body.style.top = '0'
-    document.body.style.left = '0'
-    document.body.style.right = '0'
-    document.body.style.width = '100%'
-    document.body.style.overflow = 'hidden'
-    snapLandingScroll()
-
-    return () => {
-      document.documentElement.classList.remove('is-landing')
-      document.body.style.removeProperty('position')
-      document.body.style.removeProperty('top')
-      document.body.style.removeProperty('left')
-      document.body.style.removeProperty('right')
-      document.body.style.removeProperty('width')
-      document.body.style.removeProperty('overflow')
-      snapLandingScroll()
-    }
   }, [phase])
 
   useEffect(() => {
     if ('scrollRestoration' in window.history) {
       window.history.scrollRestoration = 'manual'
     }
+    clearLandingBodyLock()
     writeHistory('idle', 'replace')
 
     function onPopState(event: PopStateEvent) {
-      // Kill restored scroll immediately on back navigation.
       snapLandingScroll()
       const raw = event.state?.phase as string | undefined
       // Legacy `#results` hashes map to try-on (results page removed).
@@ -199,7 +179,10 @@ export default function App() {
     }
 
     function onPageShow() {
-      if (phaseRef.current === 'idle') snapLandingScroll()
+      if (phaseRef.current === 'idle') {
+        clearLandingBodyLock()
+        snapLandingScroll()
+      }
     }
 
     window.addEventListener('popstate', onPopState)

@@ -7,7 +7,9 @@
 }
 
 .app.phase-idle {
+  height: 100dvh;
   height: 100svh;
+  max-height: 100dvh;
   max-height: 100svh;
   overflow: hidden;
 }
@@ -87,9 +89,9 @@
 .landing {
   position: relative;
   box-sizing: border-box;
-  height: 100svh;
-  min-height: 100svh;
-  max-height: 100svh;
+  height: 100%;
+  min-height: 100%;
+  max-height: 100%;
   overflow: hidden;
   display: flex;
   flex-direction: column;

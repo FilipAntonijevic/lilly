@@ -42,17 +42,10 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
-html.is-landing,
-html.is-landing body {
-  overflow: hidden !important;
-  overscroll-behavior: none;
-  touch-action: none;
-}
-
-html.is-landing body {
-  position: fixed;
-  inset: 0;
-  width: 100%;
+body {
+  min-height: 100vh;
+  min-height: 100dvh;
+  min-height: -webkit-fill-available;
 }
 
 button,
