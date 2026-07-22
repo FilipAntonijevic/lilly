@@ -65,8 +65,13 @@ export default function App() {
   } | null>(null)
   const analysisIdRef = useRef(0)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const phaseRef = useRef<AppPhase>(phase)
   /** How the user got their current photo — Nova slika repeats this path. */
   const [captureSource, setCaptureSource] = useState<CaptureSource>('camera')
+
+  useEffect(() => {
+    phaseRef.current = phase
+  }, [phase])
 
   useEffect(() => {
     void loadActiveCatalog().then(setCatalog)
@@ -98,19 +103,28 @@ export default function App() {
 
   function snapLandingScroll() {
     const top = () => {
-      window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
-      window.scrollTo(0, 0)
+      try {
+        window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
+      } catch {
+        window.scrollTo(0, 0)
+      }
+      const scrolling = document.scrollingElement
+      if (scrolling) scrolling.scrollTop = 0
       document.documentElement.scrollTop = 0
       document.body.scrollTop = 0
+      const root = document.getElementById('root')
+      if (root) root.scrollTop = 0
     }
     top()
-    // Safari often restores scroll after popstate/paint — snap again next frames.
+    // Safari restores scroll after popstate/paint — keep winning for a beat.
     requestAnimationFrame(() => {
       top()
       requestAnimationFrame(top)
     })
     window.setTimeout(top, 0)
     window.setTimeout(top, 50)
+    window.setTimeout(top, 150)
+    window.setTimeout(top, 300)
   }
 
   function resetToLanding() {
@@ -118,14 +132,43 @@ export default function App() {
     setProfile(null)
     setRoutine([])
     setPhotoUrl(null)
-    setPhase('idle')
     snapLandingScroll()
+    setPhase('idle')
   }
 
-  // Landing is a fixed one-screen layout — never inherit try-on scroll position.
+  // Landing must always start at the top — lock body so try-on scroll can't leak in.
   useEffect(() => {
-    if (phase !== 'idle') return
+    if (phase !== 'idle') {
+      document.documentElement.classList.remove('is-landing')
+      document.body.style.removeProperty('position')
+      document.body.style.removeProperty('top')
+      document.body.style.removeProperty('left')
+      document.body.style.removeProperty('right')
+      document.body.style.removeProperty('width')
+      document.body.style.removeProperty('overflow')
+      return
+    }
+
     snapLandingScroll()
+    document.documentElement.classList.add('is-landing')
+    document.body.style.position = 'fixed'
+    document.body.style.top = '0'
+    document.body.style.left = '0'
+    document.body.style.right = '0'
+    document.body.style.width = '100%'
+    document.body.style.overflow = 'hidden'
+    snapLandingScroll()
+
+    return () => {
+      document.documentElement.classList.remove('is-landing')
+      document.body.style.removeProperty('position')
+      document.body.style.removeProperty('top')
+      document.body.style.removeProperty('left')
+      document.body.style.removeProperty('right')
+      document.body.style.removeProperty('width')
+      document.body.style.removeProperty('overflow')
+      snapLandingScroll()
+    }
   }, [phase])
 
   useEffect(() => {
@@ -135,6 +178,8 @@ export default function App() {
     writeHistory('idle', 'replace')
 
     function onPopState(event: PopStateEvent) {
+      // Kill restored scroll immediately on back navigation.
+      snapLandingScroll()
       const raw = event.state?.phase as string | undefined
       // Legacy `#results` hashes map to try-on (results page removed).
       const next = (raw === 'results' ? 'tryon' : raw) as HistoryPhase | undefined
@@ -153,8 +198,16 @@ export default function App() {
       resetToLanding()
     }
 
+    function onPageShow() {
+      if (phaseRef.current === 'idle') snapLandingScroll()
+    }
+
     window.addEventListener('popstate', onPopState)
-    return () => window.removeEventListener('popstate', onPopState)
+    window.addEventListener('pageshow', onPageShow)
+    return () => {
+      window.removeEventListener('popstate', onPopState)
+      window.removeEventListener('pageshow', onPageShow)
+    }
   }, [])
 
   function startCamera() {
