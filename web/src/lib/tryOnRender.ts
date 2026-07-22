@@ -1,9 +1,12 @@
 import type { FaceLandmarkPoint, FaceZoneId, MakeupProduct } from '../types'
+import { hexToRgb, labToRgb, rgbToHex } from './color'
+import { classifyLipShade } from './lipstickTheory'
 import type { EditableTryOnPolygon, Point2D } from './tryOnRegions'
 import {
-  LIPS_OUTLINE_SCALE,
   TRYON_BASE_ALPHA,
-  expandLowerLipOutline,
+  buildDenseLipOutline,
+  densifyClosedRing,
+  chaikinClosed,
 } from './tryOnRegions'
 
 /**
@@ -11,8 +14,7 @@ import {
  * 1) Smooth Catmull-Rom rings instead of jagged polygon edges
  * 2) Feathered alpha masks (Gaussian blur) for skin products
  * 3) Soft-light / multiply / overlay so skin texture stays visible
- * 4) Lips: luminance-preserving `color` blend + lip-groove texture + gloss
- *    (uses the real photo texture — better than flat fill or generative patches)
+ * 4) Lips: dense outline, shade-aware pigment film, soft vermilion edge + gloss
  * 5) Eyes: lid / crease / outer layers with sclera punched out
  */
 
@@ -147,7 +149,16 @@ export function paintSoftMakeup(options: {
 
   paintZoneIfActive(layers, 'lips', (alpha) => {
     const poly = polygons.find((p) => p.id === 'lips')
-    paintLips(ctx, landmarks, poly?.points, width, height, layers.lips.product!.shadeHex, alpha, minSide)
+    paintLips(
+      ctx,
+      landmarks,
+      poly?.points,
+      width,
+      height,
+      layers.lips.product!.shadeHex,
+      alpha,
+      minSide,
+    )
   })
 }
 
@@ -260,133 +271,223 @@ function paintLips(
   alpha: number,
   minSide: number,
 ): void {
-  const outer =
+  let outer =
     editable && editable.length >= 3
       ? editable
-      : expandLowerLipOutline(
-          pointsFromIndices(landmarks, OUTER_LIPS),
-          LIPS_OUTLINE_SCALE,
-        )
+      : buildDenseLipOutline(landmarks)
   if (outer.length < 3) return
 
-  // Upper lip stays on landmarks; lower lip outline is already +5%.
-  // Do not expandRing the whole mouth — that would nudge the cupid’s bow.
-  const widened = outer
+  // Editable polygons from buildTryOnPolygons are already dense; fallback is too.
+  // If a short ring slips through, densify + smooth once more.
+  if (outer.length < 36) {
+    outer = chaikinClosed(densifyClosedRing(outer, 1), 1)
+  }
+
   const mask = createCanvas(width, height)
   const mctx = mask.getContext('2d')
   if (!mctx) return
 
   mctx.fillStyle = '#fff'
-  pathSmoothRing(mctx, widened, width, height)
+  pathSmoothRing(mctx, outer, width, height)
   mctx.fill()
   mctx.globalCompositeOperation = 'destination-out'
   punchSmoothRing(mctx, landmarks, INNER_MOUTH, width, height, -0.002)
   mctx.globalCompositeOperation = 'source-over'
 
-  // Hard edge with only AA-scale feather — lipstick is a film, not airbrush.
-  const bodyMask = featherMask(mask, Math.max(0.6, minSide * 0.0025))
+  // Soft outer film edge (still sharper than blush, not a hard sticker).
+  const bodyMask = featherMask(mask, Math.max(1.1, minSide * 0.0055))
 
-  // 1) `color` keeps photo luminance / pores / natural lip texture.
-  paintColorThroughMask(ctx, bodyMask, hex, alpha * 0.92, 'color')
-  // 2) Multiply adds pigment density (true lipstick body).
-  paintColorThroughMask(ctx, bodyMask, hex, alpha * 0.45, 'multiply')
-  // 3) Light source-over so bright reds/corals actually read as that shade.
-  paintColorThroughMask(ctx, bodyMask, hex, alpha * 0.18, 'source-over')
+  const profile = classifyLipShade(hex)
+  const photoLum = sampleMaskedLuminance(ctx, bodyMask)
+  const paintHex = adjustLipHexForPhoto(hex, photoLum, profile)
+  const stack = lipPaintStack(profile, photoLum)
 
-  // Micro lip grooves (vertical vermilion lines) — procedural, not AI.
-  const grooves = lipGrooveTexture(bodyMask, landmarks, width, height, minSide)
-  if (grooves) {
-    ctx.save()
-    ctx.globalCompositeOperation = 'multiply'
-    // Bake groove strength into pixels (blend modes ignore globalAlpha inconsistently).
-    const grooveStrength = createCanvas(width, height)
-    const gctx = grooveStrength.getContext('2d')
-    if (gctx) {
-      gctx.globalAlpha = alpha * 0.28
-      gctx.drawImage(grooves, 0, 0)
-      ctx.drawImage(grooveStrength, 0, 0)
-    }
-    ctx.restore()
+  // Soft vermilion border — slight multiply darkening at the lip edge.
+  const border = lipBorderMask(mask, width, height, minSide)
+  if (border) {
+    paintColorThroughMask(
+      ctx,
+      border,
+      darkenHex(paintHex, 0.78),
+      alpha * stack.border,
+      'multiply',
+    )
   }
 
-  // Specular gloss (Screen) along upper lip center.
+  // Film body: keep photo texture, then pigment by shade family.
+  paintColorThroughMask(ctx, bodyMask, paintHex, alpha * stack.color, 'color')
+  paintColorThroughMask(ctx, bodyMask, paintHex, alpha * stack.softLight, 'soft-light')
+  paintColorThroughMask(ctx, bodyMask, paintHex, alpha * stack.multiply, 'multiply')
+  if (stack.sourceOver > 0.01) {
+    paintColorThroughMask(
+      ctx,
+      bodyMask,
+      paintHex,
+      alpha * stack.sourceOver,
+      'source-over',
+    )
+  }
+
+  // Specular gloss — stronger on deep/cream shades, quieter on nudes.
   const gloss = lipGlossMask(landmarks, bodyMask, width, height, minSide)
-  if (gloss) {
-    paintColorThroughMask(ctx, gloss, '#ffffff', alpha * 0.28, 'screen')
+  if (gloss && stack.gloss > 0.02) {
+    paintColorThroughMask(ctx, gloss, '#ffffff', alpha * stack.gloss, 'screen')
   }
 }
 
-/** Fine vertical vermilion grooves clipped to the lip mask. */
-function lipGrooveTexture(
-  lipMask: HTMLCanvasElement,
-  landmarks: FaceLandmarkPoint[],
+interface LipPaintStack {
+  color: number
+  softLight: number
+  multiply: number
+  sourceOver: number
+  border: number
+  gloss: number
+}
+
+function lipPaintStack(
+  profile: ReturnType<typeof classifyLipShade>,
+  photoLum: number,
+): LipPaintStack {
+  const L = profile.lab.L
+  const isNude =
+    profile.family === 'nude' ||
+    (profile.family === 'pink' && L > 52 && profile.chroma < 32)
+  const isDeep =
+    L < 38 ||
+    profile.family === 'plum' ||
+    profile.family === 'berry' ||
+    profile.family === 'brown' ||
+    profile.family === 'cool_red' ||
+    profile.family === 'warm_red'
+
+  // Dark natural lips already carry luminance — ease opaque lifts.
+  const darkPhoto = photoLum < 0.28
+  const lightPhoto = photoLum > 0.55
+
+  if (isNude) {
+    return {
+      color: 0.72,
+      softLight: 0.42,
+      multiply: darkPhoto ? 0.14 : 0.22,
+      sourceOver: lightPhoto ? 0.08 : 0.04,
+      border: 0.14,
+      gloss: 0.1,
+    }
+  }
+
+  if (isDeep) {
+    return {
+      color: 0.9,
+      softLight: 0.22,
+      multiply: darkPhoto ? 0.42 : 0.55,
+      sourceOver: darkPhoto ? 0.14 : 0.22,
+      border: 0.22,
+      gloss: profile.family === 'brown' ? 0.16 : 0.3,
+    }
+  }
+
+  // Mid / coral / pink statement
+  return {
+    color: 0.88,
+    softLight: 0.3,
+    multiply: 0.38,
+    sourceOver: 0.14,
+    border: 0.18,
+    gloss: 0.2,
+  }
+}
+
+/** Shift catalog hex toward photo lip luminance so nudes don’t plasticize. */
+function adjustLipHexForPhoto(
+  _hex: string,
+  photoLum: number,
+  profile: ReturnType<typeof classifyLipShade>,
+): string {
+  const lab = { ...profile.lab }
+  const targetL = 18 + photoLum * 62
+  const isNude =
+    profile.family === 'nude' ||
+    (profile.family === 'pink' && lab.L > 52 && profile.chroma < 32)
+
+  if (isNude) {
+    // Pull lightness toward the photo; gently mute chroma.
+    lab.L = lab.L * 0.45 + targetL * 0.55
+    lab.a *= 0.82
+    lab.b *= 0.82
+  } else if (lab.L > targetL + 18) {
+    // Very light swatch on darker lips — bring down a notch.
+    lab.L = lab.L * 0.7 + targetL * 0.3
+  } else if (lab.L < targetL - 22 && profile.chroma > 28) {
+    // Deep chromatic on pale lips — lift slightly so it doesn’t crush.
+    lab.L = lab.L * 0.85 + targetL * 0.15
+  }
+
+  const [r, g, b] = labToRgb(lab)
+  return rgbToHex(r, g, b)
+}
+
+function darkenHex(hex: string, factor: number): string {
+  const [r, g, b] = hexToRgb(hex)
+  return rgbToHex(
+    Math.round(r * factor),
+    Math.round(g * factor),
+    Math.round(b * factor),
+  )
+}
+
+/** Soft ring at the vermilion edge (outer feather minus tighter core). */
+function lipBorderMask(
+  hardMask: HTMLCanvasElement,
   width: number,
   height: number,
   minSide: number,
 ): HTMLCanvasElement | null {
-  const bounds = lipPixelBounds(landmarks, width, height)
-  if (!bounds) return null
-
-  const tex = createCanvas(width, height)
-  const tctx = tex.getContext('2d')
-  if (!tctx) return null
-
-  const img = tctx.createImageData(width, height)
-  const data = img.data
-  const { minX, maxX, minY, maxY } = bounds
-  const midY = (minY + maxY) / 2
-  const lipH = Math.max(1, maxY - minY)
-
-  for (let y = minY; y <= maxY; y++) {
-    for (let x = minX; x <= maxX; x++) {
-      // Vertical groove frequency scales with face size.
-      const groove = Math.sin((x / minSide) * 520 + Math.sin(y * 0.09) * 1.4)
-      const fine = Math.sin((x / minSide) * 1100 + y * 0.05)
-      // Stronger near horizontal mid of each lip half.
-      const distMid = Math.abs(y - midY) / lipH
-      const envelope = Math.max(0, 1 - distMid * 1.6)
-      const v = 1 - (0.55 + groove * 0.28 + fine * 0.12) * envelope * 0.55
-      const shade = Math.round(clamp01(v) * 255)
-      const i = (y * width + x) * 4
-      data[i] = shade
-      data[i + 1] = shade
-      data[i + 2] = shade
-      data[i + 3] = 255
-    }
-  }
-  tctx.putImageData(img, 0, 0)
-  tctx.globalCompositeOperation = 'destination-in'
-  tctx.drawImage(lipMask, 0, 0)
-  tctx.globalCompositeOperation = 'source-over'
-  return featherMask(tex, Math.max(0.4, minSide * 0.0015))
+  const outer = featherMask(hardMask, Math.max(1.4, minSide * 0.009))
+  const core = featherMask(hardMask, Math.max(0.7, minSide * 0.0028))
+  const border = createCanvas(width, height)
+  const bctx = border.getContext('2d')
+  if (!bctx) return null
+  bctx.drawImage(outer, 0, 0)
+  bctx.globalCompositeOperation = 'destination-out'
+  bctx.drawImage(core, 0, 0)
+  bctx.globalCompositeOperation = 'source-over'
+  return border
 }
 
-function lipPixelBounds(
-  landmarks: FaceLandmarkPoint[],
-  width: number,
-  height: number,
-): { minX: number; maxX: number; minY: number; maxY: number } | null {
-  const pts = pointsFromIndices(landmarks, OUTER_LIPS)
-  if (pts.length < 3) return null
-  let minX = width
-  let maxX = 0
-  let minY = height
-  let maxY = 0
-  for (const p of pts) {
-    const x = Math.round(p.x * width)
-    const y = Math.round(p.y * height)
-    minX = Math.min(minX, x)
-    maxX = Math.max(maxX, x)
-    minY = Math.min(minY, y)
-    maxY = Math.max(maxY, y)
+function sampleMaskedLuminance(
+  ctx: CanvasRenderingContext2D,
+  mask: HTMLCanvasElement,
+): number {
+  const w = mask.width
+  const h = mask.height
+  const mctx = mask.getContext('2d', { willReadFrequently: true })
+  if (!mctx) return 0.42
+  let maskData: ImageData
+  let photoData: ImageData
+  try {
+    maskData = mctx.getImageData(0, 0, w, h)
+    photoData = ctx.getImageData(0, 0, w, h)
+  } catch {
+    return 0.42
   }
-  const pad = 4
-  return {
-    minX: Math.max(0, minX - pad),
-    maxX: Math.min(width - 1, maxX + pad),
-    minY: Math.max(0, minY - pad),
-    maxY: Math.min(height - 1, maxY + pad),
+
+  const md = maskData.data
+  const pd = photoData.data
+  let sum = 0
+  let n = 0
+  const step = 4
+  for (let y = 0; y < h; y += step) {
+    for (let x = 0; x < w; x += step) {
+      const i = (y * w + x) * 4
+      if ((md[i + 3] ?? 0) < 120) continue
+      const r = pd[i] ?? 0
+      const g = pd[i + 1] ?? 0
+      const b = pd[i + 2] ?? 0
+      sum += 0.2126 * r + 0.7152 * g + 0.0722 * b
+      n++
+    }
   }
+  return n > 0 ? sum / n / 255 : 0.42
 }
 
 function lipGlossMask(
@@ -406,22 +507,21 @@ function lipGlossMask(
   }
   const cx = (sx / pts.length) * width
   const cy = (sy / pts.length) * height - minSide * 0.003
-  const rx = minSide * 0.048
-  const ry = minSide * 0.01
+  const rx = minSide * 0.042
+  const ry = minSide * 0.009
   const mask = createCanvas(width, height)
   const mctx = mask.getContext('2d')!
   const g = mctx.createRadialGradient(cx, cy, 0, cx, cy, rx)
-  g.addColorStop(0, 'rgba(255,255,255,0.95)')
-  g.addColorStop(0.5, 'rgba(255,255,255,0.4)')
+  g.addColorStop(0, 'rgba(255,255,255,0.9)')
+  g.addColorStop(0.45, 'rgba(255,255,255,0.35)')
   g.addColorStop(1, 'rgba(255,255,255,0)')
   mctx.fillStyle = g
   mctx.beginPath()
   mctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2)
   mctx.fill()
-  // Keep gloss only on painted lips.
   mctx.globalCompositeOperation = 'destination-in'
   mctx.drawImage(lipMask, 0, 0)
-  return featherMask(mask, minSide * 0.008)
+  return featherMask(mask, minSide * 0.007)
 }
 
 function paintEyeLayers(

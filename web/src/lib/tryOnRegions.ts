@@ -96,6 +96,20 @@ export const LIPS_OUTLINE_SCALE = 1.05
 /** OUTER_LIPS / try-on lips ring: upper cupid arc first, then lower. */
 export const LIPS_UPPER_POINT_COUNT = 11
 
+/** MediaPipe outer / inner lip arcs (paired for denser vermilion outline). */
+export const LIPS_UPPER_OUTER = [
+  61, 185, 40, 39, 37, 0, 267, 269, 270, 409, 291,
+] as const
+export const LIPS_UPPER_INNER = [
+  78, 191, 80, 81, 82, 13, 312, 311, 310, 415, 308,
+] as const
+export const LIPS_LOWER_OUTER = [
+  375, 321, 405, 314, 17, 84, 181, 91, 146,
+] as const
+export const LIPS_LOWER_INNER = [
+  324, 318, 402, 317, 14, 87, 178, 88, 95,
+] as const
+
 export function buildTryOnPolygons(
   landmarks: FaceLandmarkPoint[],
 ): EditableTryOnPolygon[] {
@@ -129,6 +143,19 @@ export function buildTryOnPolygons(
       continue
     }
 
+    if (id === 'lips') {
+      const points = buildDenseLipOutline(landmarks)
+      if (points.length < 3) continue
+      out.push({
+        id,
+        zoneId: TRYON_ZONE_BY_POLYGON[id],
+        labelKey: TRYON_LABEL_BY_POLYGON[id],
+        kind: 'polygon',
+        points,
+      })
+      continue
+    }
+
     const indices = TRYON_POLYGON_INDICES[id]
     let points: Point2D[] = []
     for (const index of indices) {
@@ -137,9 +164,6 @@ export function buildTryOnPolygons(
       points.push({ x: clamp01(lm.x), y: clamp01(lm.y) })
     }
     if (points.length < 3) continue
-    if (id === 'lips') {
-      points = expandLowerLipOutline(points, LIPS_OUTLINE_SCALE)
-    }
     if (id === 'underEyeLeft' || id === 'underEyeRight') {
       points = deepenUnderEyeCrescent(points)
     }
@@ -153,6 +177,100 @@ export function buildTryOnPolygons(
   }
 
   return out
+}
+
+/**
+ * Dense vermilion outline: outer+inner MediaPipe arcs blended, then midpoints
+ * + Chaikin smoothing (no manual edit handles).
+ */
+export function buildDenseLipOutline(
+  landmarks: FaceLandmarkPoint[],
+): Point2D[] {
+  const upper = blendLipArc(landmarks, LIPS_UPPER_OUTER, LIPS_UPPER_INNER, 0.9)
+  const lower = blendLipArc(landmarks, LIPS_LOWER_OUTER, LIPS_LOWER_INNER, 0.92)
+  if (upper.length < 3 || lower.length < 2) return []
+
+  let ring = [...upper, ...lower]
+  ring = expandLowerLipOutline(ring, LIPS_OUTLINE_SCALE)
+  ring = densifyClosedRing(ring, 1)
+  ring = chaikinClosed(ring, 1)
+  return ring
+}
+
+function blendLipArc(
+  landmarks: FaceLandmarkPoint[],
+  outerIdx: readonly number[],
+  innerIdx: readonly number[],
+  outerWeight: number,
+): Point2D[] {
+  const out: Point2D[] = []
+  const n = Math.min(outerIdx.length, innerIdx.length)
+  const wO = clamp01(outerWeight)
+  const wI = 1 - wO
+  for (let i = 0; i < n; i++) {
+    const o = landmarks[outerIdx[i]!]
+    const inn = landmarks[innerIdx[i]!]
+    if (!o) continue
+    if (!inn) {
+      out.push({ x: clamp01(o.x), y: clamp01(o.y) })
+      continue
+    }
+    out.push({
+      x: clamp01(o.x * wO + inn.x * wI),
+      y: clamp01(o.y * wO + inn.y * wI),
+    })
+  }
+  return out
+}
+
+/** Insert midpoints on every edge of a closed ring. */
+export function densifyClosedRing(
+  points: Point2D[],
+  subdivisions: number = 1,
+): Point2D[] {
+  let pts = points.map((p) => ({ x: p.x, y: p.y }))
+  for (let s = 0; s < subdivisions; s++) {
+    if (pts.length < 3) return pts
+    const next: Point2D[] = []
+    for (let i = 0; i < pts.length; i++) {
+      const a = pts[i]!
+      const b = pts[(i + 1) % pts.length]!
+      next.push({ x: a.x, y: a.y })
+      next.push({
+        x: clamp01((a.x + b.x) * 0.5),
+        y: clamp01((a.y + b.y) * 0.5),
+      })
+    }
+    pts = next
+  }
+  return pts
+}
+
+/** Chaikin corner-cutting for smoother cupid’s bow / corners. */
+export function chaikinClosed(
+  points: Point2D[],
+  iterations: number = 1,
+): Point2D[] {
+  let pts = points.map((p) => ({ x: p.x, y: p.y }))
+  for (let iter = 0; iter < iterations; iter++) {
+    if (pts.length < 3) return pts
+    const next: Point2D[] = []
+    const n = pts.length
+    for (let i = 0; i < n; i++) {
+      const p0 = pts[i]!
+      const p1 = pts[(i + 1) % n]!
+      next.push({
+        x: clamp01(p0.x * 0.75 + p1.x * 0.25),
+        y: clamp01(p0.y * 0.75 + p1.y * 0.25),
+      })
+      next.push({
+        x: clamp01(p0.x * 0.25 + p1.x * 0.75),
+        y: clamp01(p0.y * 0.25 + p1.y * 0.75),
+      })
+    }
+    pts = next
+  }
+  return pts
 }
 
 export function polygonsForZone(
