@@ -74,8 +74,9 @@ export const TRYON_BLEND: Record<FaceZoneId, GlobalCompositeOperation> = {
 export const TRYON_BASE_ALPHA: Record<FaceZoneId, number> = {
   faceBase: 0.52,
   underEye: 0.68,
-  cheeks: 0.78,
-  contour: 1.0,
+  // Cap ~25% lower so max slider stays on-skin (less spill at full intensity).
+  cheeks: 0.585,
+  contour: 0.75,
   lips: 0.95,
   // 2× previous strength: slider 50% ≈ old 100%, slider 100% ≈ old 200%.
   eyes: 1.44,

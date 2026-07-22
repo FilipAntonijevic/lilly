@@ -114,12 +114,8 @@ export function paintSoftMakeup(options: {
   })
 
   paintZoneIfActive(layers, 'cheeks', (alpha) => {
-    const faceOval = polygons.find((p) => p.id === 'faceOval')
-    // Slightly inset so blush never bleeds past the jaw / temple edge.
-    const faceClip =
-      faceOval && faceOval.points.length >= 3
-        ? expandRing(faceOval.points, -0.012)
-        : null
+    // Interior oval (no ear tips) + hard inset — blush never past face silhouette.
+    const faceClip = faceInteriorClipRing(landmarks, polygons, 0.034)
     for (const id of ['leftCheek', 'rightCheek'] as const) {
       const poly = polygons.find((p) => p.id === id)
       if (!poly || poly.kind !== 'circle' || poly.points.length < 2) continue
@@ -133,10 +129,12 @@ export function paintSoftMakeup(options: {
       if (faceClip) {
         mask = clipMaskToRing(mask, faceClip, width, height)
       }
-      paintColorThroughMask(ctx, mask, layers.cheeks.product!.shadeHex, alpha, 'overlay')
-      paintColorThroughMask(ctx, mask, layers.cheeks.product!.shadeHex, alpha * 0.55, 'soft-light')
-      // Pigment pass so blush reads even on muted catalog hexes.
-      paintColorThroughMask(ctx, mask, layers.cheeks.product!.shadeHex, alpha * 0.28, 'source-over')
+      paintInsideFaceClip(ctx, faceClip, width, height, () => {
+        paintColorThroughMask(ctx, mask, layers.cheeks.product!.shadeHex, alpha, 'overlay')
+        paintColorThroughMask(ctx, mask, layers.cheeks.product!.shadeHex, alpha * 0.55, 'soft-light')
+        // Pigment pass so blush reads even on muted catalog hexes.
+        paintColorThroughMask(ctx, mask, layers.cheeks.product!.shadeHex, alpha * 0.28, 'source-over')
+      })
     }
   })
 
@@ -174,33 +172,31 @@ function paintContour(
   alpha: number,
   minSide: number,
 ): void {
-  const faceOval = polygons.find((p) => p.id === 'faceOval')
-  // Hard inset so soft strokes / blur never spill past the cheek edge.
-  const faceClip =
-    faceOval && faceOval.points.length >= 3
-      ? expandRing(faceOval.points, -0.028)
-      : null
+  // Interior oval (no ear tips) + hard inset — contour never past face silhouette.
+  const faceClip = faceInteriorClipRing(landmarks, polygons, 0.042)
 
   const clip = (mask: HTMLCanvasElement) => {
     if (!faceClip) return mask
     return clipMaskToRing(mask, faceClip, width, height)
   }
 
-  for (const side of ['left', 'right'] as const) {
-    const cheekbone = clip(
-      cheekboneBandMask(landmarks, side, width, height, minSide),
-    )
-    paintColorThroughMask(ctx, cheekbone, hex, alpha * 0.62, 'multiply')
-    paintColorThroughMask(ctx, cheekbone, hex, alpha * 0.38, 'soft-light')
-  }
+  paintInsideFaceClip(ctx, faceClip, width, height, () => {
+    for (const side of ['left', 'right'] as const) {
+      const cheekbone = clip(
+        cheekboneBandMask(landmarks, side, width, height, minSide),
+      )
+      paintColorThroughMask(ctx, cheekbone, hex, alpha * 0.62, 'multiply')
+      paintColorThroughMask(ctx, cheekbone, hex, alpha * 0.38, 'soft-light')
+    }
 
-  for (const side of ['left', 'right'] as const) {
-    const jaw = clip(
-      jawlineBandMask(landmarks, side, width, height, minSide),
-    )
-    paintColorThroughMask(ctx, jaw, hex, alpha * 0.52, 'multiply')
-    paintColorThroughMask(ctx, jaw, hex, alpha * 0.36, 'soft-light')
-  }
+    for (const side of ['left', 'right'] as const) {
+      const jaw = clip(
+        jawlineBandMask(landmarks, side, width, height, minSide),
+      )
+      paintColorThroughMask(ctx, jaw, hex, alpha * 0.52, 'multiply')
+      paintColorThroughMask(ctx, jaw, hex, alpha * 0.36, 'soft-light')
+    }
+  })
 }
 
 /**
@@ -238,12 +234,12 @@ function cheekboneBandMask(
   })
 
   strokeSoftBand(mctx, pathPts, width, height, minSide, {
-    wide: 0.042,
-    mid: 0.028,
-    core: 0.016,
+    wide: 0.036,
+    mid: 0.024,
+    core: 0.014,
   })
   // Feather first, caller clips to inset face oval afterward.
-  return featherMask(mask, minSide * 0.01)
+  return featherMask(mask, minSide * 0.008)
 }
 
 /**
@@ -279,11 +275,11 @@ function jawlineBandMask(
   })
 
   strokeSoftBand(mctx, pathPts, width, height, minSide, {
-    wide: 0.052,
-    mid: 0.034,
-    core: 0.02,
+    wide: 0.044,
+    mid: 0.028,
+    core: 0.016,
   })
-  return featherMask(mask, minSide * 0.01)
+  return featherMask(mask, minSide * 0.008)
 }
 
 function strokeSoftBand(
@@ -792,7 +788,7 @@ function softCircleMask(
   return featherMask(mask, blurPx)
 }
 
-/** Keep blush (etc.) inside the face oval — soft circles often spill past the jaw. */
+/** Keep blush/contour inside the face oval — soft strokes often spill past the jaw. */
 function clipMaskToRing(
   mask: HTMLCanvasElement,
   ring: Point2D[],
@@ -802,13 +798,59 @@ function clipMaskToRing(
   if (ring.length < 3) return mask
   const mctx = mask.getContext('2d')
   if (!mctx) return mask
-  mctx.save()
-  mctx.globalCompositeOperation = 'destination-in'
-  mctx.fillStyle = '#fff'
-  pathSmoothRing(mctx, ring, width, height)
-  mctx.fill()
-  mctx.restore()
+  // Hard destination-in twice: blur can leave faint outside alpha after one pass.
+  for (let i = 0; i < 2; i++) {
+    mctx.save()
+    mctx.globalCompositeOperation = 'destination-in'
+    mctx.fillStyle = '#fff'
+    pathSmoothRing(mctx, ring, width, height)
+    mctx.fill()
+    mctx.restore()
+  }
   return mask
+}
+
+/**
+ * MediaPipe face oval includes ear tips (234 / 454). For blush & contour we
+ * drop those so the clip hugs the cheek silhouette instead of the ear.
+ */
+const FACE_INTERIOR_OVAL = [
+  10, 338, 297, 332, 284, 251, 389, 356, 323, 361, 288, 397, 365, 379, 378,
+  400, 377, 152, 148, 176, 149, 150, 136, 172, 58, 132, 93, 127, 162, 21, 54,
+  103, 67, 109,
+] as const
+
+function faceInteriorClipRing(
+  landmarks: FaceLandmarkPoint[],
+  polygons: EditableTryOnPolygon[],
+  insetNorm: number,
+): Point2D[] | null {
+  let pts = pointsFromIndices(landmarks, FACE_INTERIOR_OVAL)
+  if (pts.length < 3) {
+    const faceOval = polygons.find((p) => p.id === 'faceOval')
+    if (!faceOval || faceOval.points.length < 3) return null
+    pts = faceOval.points
+  }
+  return expandRing(pts, -Math.abs(insetNorm))
+}
+
+/** Canvas-level clip so paint cannot leave the face polygon even via soft masks. */
+function paintInsideFaceClip(
+  ctx: CanvasRenderingContext2D,
+  faceClip: Point2D[] | null,
+  width: number,
+  height: number,
+  paint: () => void,
+): void {
+  if (!faceClip || faceClip.length < 3) {
+    paint()
+    return
+  }
+  ctx.save()
+  pathSmoothRing(ctx, faceClip, width, height)
+  ctx.clip()
+  paint()
+  ctx.restore()
 }
 
 function punchSmoothRing(
