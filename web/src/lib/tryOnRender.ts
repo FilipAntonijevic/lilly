@@ -160,9 +160,9 @@ export function paintSoftMakeup(options: {
 }
 
 /**
- * Contour in 4 zones (2 per side):
- * 1) Cheekbone bone running toward the ear (side of face — thin in frontal view)
- * 2) Jawline bone
+ * Contour in 4 zones (2 per side), always clipped inside the face oval:
+ * 1) Cheekbone toward the ear (stays on-face, not past the silhouette)
+ * 2) Jawline
  */
 function paintContour(
   ctx: CanvasRenderingContext2D,
@@ -175,34 +175,37 @@ function paintContour(
   minSide: number,
 ): void {
   const faceOval = polygons.find((p) => p.id === 'faceOval')
+  // Hard inset so soft strokes / blur never spill past the cheek edge.
   const faceClip =
     faceOval && faceOval.points.length >= 3
-      ? expandRing(faceOval.points, -0.006)
+      ? expandRing(faceOval.points, -0.028)
       : null
 
-  const clip = (mask: HTMLCanvasElement) =>
-    faceClip ? clipMaskToRing(mask, faceClip, width, height) : mask
+  const clip = (mask: HTMLCanvasElement) => {
+    if (!faceClip) return mask
+    return clipMaskToRing(mask, faceClip, width, height)
+  }
 
   for (const side of ['left', 'right'] as const) {
     const cheekbone = clip(
       cheekboneBandMask(landmarks, side, width, height, minSide),
     )
-    paintColorThroughMask(ctx, cheekbone, hex, alpha * 0.66, 'multiply')
-    paintColorThroughMask(ctx, cheekbone, hex, alpha * 0.42, 'soft-light')
+    paintColorThroughMask(ctx, cheekbone, hex, alpha * 0.62, 'multiply')
+    paintColorThroughMask(ctx, cheekbone, hex, alpha * 0.38, 'soft-light')
   }
 
   for (const side of ['left', 'right'] as const) {
     const jaw = clip(
       jawlineBandMask(landmarks, side, width, height, minSide),
     )
-    paintColorThroughMask(ctx, jaw, hex, alpha * 0.58, 'multiply')
-    paintColorThroughMask(ctx, jaw, hex, alpha * 0.4, 'soft-light')
+    paintColorThroughMask(ctx, jaw, hex, alpha * 0.52, 'multiply')
+    paintColorThroughMask(ctx, jaw, hex, alpha * 0.36, 'soft-light')
   }
 }
 
 /**
- * Upper contour: zygomatic bone from the cheekbone toward the ear (side of face).
- * Narrow height — from a frontal portrait it should read as a slim side band.
+ * Upper contour: along the cheekbone toward the ear, kept inside the face.
+ * Stops short of the ear landmark so the band cannot paint into background.
  */
 function cheekboneBandMask(
   landmarks: FaceLandmarkPoint[],
@@ -211,11 +214,11 @@ function cheekboneBandMask(
   height: number,
   minSide: number,
 ): HTMLCanvasElement {
-  // Cheekbone prominence → along the arch → ear (not the hollow under the apple).
+  // On-face cheekbone points only — no ear silhouette (234 / 454).
   const indices =
     side === 'left'
-      ? ([123, 116, 143, 227, 234] as const)
-      : ([352, 345, 372, 447, 454] as const)
+      ? ([123, 116, 143, 227] as const)
+      : ([352, 345, 372, 447] as const)
 
   const pts = pointsFromIndices(landmarks, indices)
   const mask = createCanvas(width, height)
@@ -225,27 +228,26 @@ function cheekboneBandMask(
   const faceScale = estimateContourFaceScale(landmarks)
   const pathPts = pts.map((p, i) => {
     const t = i / Math.max(1, pts.length - 1)
-    // Sit on the bone: slight up toward the arch, mild lateral push to the side.
-    const up = faceScale * (0.012 - t * 0.004)
-    const outward = faceScale * (0.006 + t * 0.01) * (side === 'left' ? -1 : 1)
+    // Pull inward toward face center (never outward past the cheek).
+    const inward = faceScale * (0.022 + t * 0.02) * (side === 'left' ? 1 : -1)
+    const up = faceScale * 0.008
     return {
-      x: clamp01(p.x + outward),
+      x: clamp01(p.x + inward),
       y: clamp01(p.y - up),
     }
   })
 
-  // Slimmer band than jaw — portrait view shouldn’t show a wide stripe.
   strokeSoftBand(mctx, pathPts, width, height, minSide, {
-    wide: 0.058,
-    mid: 0.038,
-    core: 0.022,
+    wide: 0.042,
+    mid: 0.028,
+    core: 0.016,
   })
-  return featherMask(mask, minSide * 0.014)
+  // Feather first, caller clips to inset face oval afterward.
+  return featherMask(mask, minSide * 0.01)
 }
 
 /**
- * Lower contour: jawline bone from near the ear down the mandibular side.
- * Stops before the chin tip.
+ * Lower contour: jawline inside the face, stops before chin tip / ear edge.
  */
 function jawlineBandMask(
   landmarks: FaceLandmarkPoint[],
@@ -254,10 +256,11 @@ function jawlineBandMask(
   height: number,
   minSide: number,
 ): HTMLCanvasElement {
+  // Skip ear (234/454) — start on the jaw side inside the silhouette.
   const indices =
     side === 'left'
-      ? ([234, 93, 132, 58, 172, 136, 150] as const)
-      : ([454, 323, 361, 288, 397, 365, 379] as const)
+      ? ([93, 132, 58, 172, 136, 150] as const)
+      : ([323, 361, 288, 397, 365, 379] as const)
 
   const pts = pointsFromIndices(landmarks, indices)
   const mask = createCanvas(width, height)
@@ -267,8 +270,8 @@ function jawlineBandMask(
   const faceScale = estimateContourFaceScale(landmarks)
   const pathPts = pts.map((p, i) => {
     const t = i / Math.max(1, pts.length - 1)
-    const inward = faceScale * (0.012 + t * 0.01) * (side === 'left' ? 1 : -1)
-    const up = faceScale * 0.006
+    const inward = faceScale * (0.028 + t * 0.016) * (side === 'left' ? 1 : -1)
+    const up = faceScale * 0.01
     return {
       x: clamp01(p.x + inward),
       y: clamp01(p.y - up),
@@ -276,11 +279,11 @@ function jawlineBandMask(
   })
 
   strokeSoftBand(mctx, pathPts, width, height, minSide, {
-    wide: 0.078,
-    mid: 0.05,
-    core: 0.03,
+    wide: 0.052,
+    mid: 0.034,
+    core: 0.02,
   })
-  return featherMask(mask, minSide * 0.016)
+  return featherMask(mask, minSide * 0.01)
 }
 
 function strokeSoftBand(
