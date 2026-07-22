@@ -96,23 +96,42 @@ export default function App() {
     return () => document.removeEventListener('click', onClick, true)
   }, [])
 
+  function snapLandingScroll() {
+    const top = () => {
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
+      window.scrollTo(0, 0)
+      document.documentElement.scrollTop = 0
+      document.body.scrollTop = 0
+    }
+    top()
+    // Safari often restores scroll after popstate/paint — snap again next frames.
+    requestAnimationFrame(() => {
+      top()
+      requestAnimationFrame(top)
+    })
+    window.setTimeout(top, 0)
+    window.setTimeout(top, 50)
+  }
+
   function resetToLanding() {
     analysisIdRef.current += 1
     setProfile(null)
     setRoutine([])
     setPhotoUrl(null)
     setPhase('idle')
+    snapLandingScroll()
   }
 
   // Landing is a fixed one-screen layout — never inherit try-on scroll position.
   useEffect(() => {
     if (phase !== 'idle') return
-    window.scrollTo(0, 0)
-    document.documentElement.scrollTop = 0
-    document.body.scrollTop = 0
+    snapLandingScroll()
   }, [phase])
 
   useEffect(() => {
+    if ('scrollRestoration' in window.history) {
+      window.history.scrollRestoration = 'manual'
+    }
     writeHistory('idle', 'replace')
 
     function onPopState(event: PopStateEvent) {
