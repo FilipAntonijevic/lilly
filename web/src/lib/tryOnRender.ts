@@ -160,8 +160,7 @@ export function paintSoftMakeup(options: {
 }
 
 /**
- * Realistic contour: elongated cheek-hollow bands + jaw sculpt (not tiny dots).
- * Soft-light keeps skin texture; multiply adds depth under the cheekbone.
+ * Real-world contour zones: cheek hollows, jawline → chin, chin tip, temples.
  */
 function paintContour(
   ctx: CanvasRenderingContext2D,
@@ -176,12 +175,13 @@ function paintContour(
   const faceOval = polygons.find((p) => p.id === 'faceOval')
   const faceClip =
     faceOval && faceOval.points.length >= 3
-      ? expandRing(faceOval.points, -0.008)
+      ? expandRing(faceOval.points, -0.006)
       : null
 
   const clip = (mask: HTMLCanvasElement) =>
     faceClip ? clipMaskToRing(mask, faceClip, width, height) : mask
 
+  // 1) Cheek hollows under the zygoma
   for (const side of ['left', 'right'] as const) {
     const hollow = clip(
       cheekHollowMask(landmarks, side, width, height, minSide),
@@ -190,23 +190,21 @@ function paintContour(
     paintColorThroughMask(ctx, hollow, hex, alpha * 0.42, 'soft-light')
   }
 
-  for (const id of ['jawLeft', 'jawRight'] as const) {
-    const poly = polygons.find((p) => p.id === id)
-    if (!poly || poly.points.length < 3) continue
-    const jawCore = clip(
-      featheredSmoothRing(poly.points, width, height, minSide * 0.022, {
-        radialCore: 0.28,
-      }),
+  // 2) Jawline band from ear down onto the chin (real contour path)
+  for (const side of ['left', 'right'] as const) {
+    const jaw = clip(
+      jawlineBandMask(landmarks, side, width, height, minSide),
     )
-    const jawSoft = clip(
-      featheredSmoothRing(poly.points, width, height, minSide * 0.04, {
-        radialCore: 0.15,
-      }),
-    )
-    paintColorThroughMask(ctx, jawCore, hex, alpha * 0.38, 'multiply')
-    paintColorThroughMask(ctx, jawSoft, hex, alpha * 0.4, 'soft-light')
+    paintColorThroughMask(ctx, jaw, hex, alpha * 0.55, 'multiply')
+    paintColorThroughMask(ctx, jaw, hex, alpha * 0.38, 'soft-light')
   }
 
+  // 3) Chin tip / underside — finishes the “V” of the jaw
+  const chin = clip(chinContourMask(landmarks, width, height, minSide))
+  paintColorThroughMask(ctx, chin, hex, alpha * 0.5, 'multiply')
+  paintColorThroughMask(ctx, chin, hex, alpha * 0.36, 'soft-light')
+
+  // 4) Soft temples
   for (const side of ['left', 'right'] as const) {
     const temple = clip(
       templeShadowMask(landmarks, side, width, height, minSide),
@@ -224,7 +222,6 @@ function cheekHollowMask(
   height: number,
   minSide: number,
 ): HTMLCanvasElement {
-  // Path hugs the underside of the zygoma (not the blush apple).
   const indices =
     side === 'left'
       ? ([234, 227, 116, 123, 147, 187, 205] as const)
@@ -235,10 +232,8 @@ function cheekHollowMask(
   const mctx = mask.getContext('2d')
   if (!mctx || pts.length < 3) return mask
 
-  // Pull the path slightly downward so it sits in the hollow, not on the apple.
   const faceScale = estimateContourFaceScale(landmarks)
   const sunk = pts.map((p, i) => {
-    // Keep ear start higher; sink mid/end into the hollow.
     const t = i / Math.max(1, pts.length - 1)
     const down = faceScale * (0.01 + t * 0.045)
     const inward = faceScale * (0.008 + t * 0.02) * (side === 'left' ? 1 : -1)
@@ -247,11 +242,114 @@ function cheekHollowMask(
       y: clamp01(p.y + down),
     }
   })
-  // Stop before the mouth — drop the last apple-ish point weight by shortening.
   const pathPts = sunk.slice(0, -1)
+  strokeSoftBand(mctx, pathPts, width, height, minSide, {
+    wide: 0.1,
+    mid: 0.068,
+    core: 0.04,
+  })
+  return featherMask(mask, minSide * 0.02)
+}
 
-  const stroke = (lineWidth: number, alpha: number) => {
-    mctx.strokeStyle = `rgba(255,255,255,${alpha})`
+/**
+ * Mandible contour: ear → jaw angle → chin side → chin tip.
+ * Matches where bronzer/contour sits along the jaw in real makeup.
+ */
+function jawlineBandMask(
+  landmarks: FaceLandmarkPoint[],
+  side: 'left' | 'right',
+  width: number,
+  height: number,
+  minSide: number,
+): HTMLCanvasElement {
+  const indices =
+    side === 'left'
+      ? ([234, 93, 132, 58, 172, 136, 150, 176, 152] as const)
+      : ([454, 323, 361, 288, 397, 365, 379, 400, 152] as const)
+
+  const pts = pointsFromIndices(landmarks, indices)
+  const mask = createCanvas(width, height)
+  const mctx = mask.getContext('2d')
+  if (!mctx || pts.length < 3) return mask
+
+  const faceScale = estimateContourFaceScale(landmarks)
+  // Bias slightly inward/up so paint sits on the jaw face, not outside the silhouette.
+  const pathPts = pts.map((p, i) => {
+    const t = i / Math.max(1, pts.length - 1)
+    const inward = faceScale * (0.012 + t * 0.01) * (side === 'left' ? 1 : -1)
+    const up = faceScale * 0.006 * (1 - t * 0.4)
+    return {
+      x: clamp01(p.x + inward),
+      y: clamp01(p.y - up),
+    }
+  })
+
+  strokeSoftBand(mctx, pathPts, width, height, minSide, {
+    wide: 0.085,
+    mid: 0.055,
+    core: 0.032,
+  })
+  return featherMask(mask, minSide * 0.018)
+}
+
+/** Chin tip + soft sides — completes jaw contour under the face. */
+function chinContourMask(
+  landmarks: FaceLandmarkPoint[],
+  width: number,
+  height: number,
+  minSide: number,
+): HTMLCanvasElement {
+  const tip = landmarks[152]
+  const left = landmarks[176]
+  const right = landmarks[400]
+  const mask = createCanvas(width, height)
+  const mctx = mask.getContext('2d')
+  if (!mctx || !tip) return mask
+
+  const faceScale = estimateContourFaceScale(landmarks)
+  const cx = tip.x * width
+  const cy = (tip.y + faceScale * 0.01) * height
+  const rx = minSide * 0.07
+  const ry = minSide * 0.045
+
+  const g = mctx.createRadialGradient(cx, cy, 0, cx, cy, rx)
+  g.addColorStop(0, 'rgba(255,255,255,0.95)')
+  g.addColorStop(0.45, 'rgba(255,255,255,0.55)')
+  g.addColorStop(1, 'rgba(255,255,255,0)')
+  mctx.fillStyle = g
+  mctx.beginPath()
+  mctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2)
+  mctx.fill()
+
+  // Soft side pads so left/right jaw meets the tip.
+  for (const sideLm of [left, right]) {
+    if (!sideLm) continue
+    const sx = ((sideLm.x + tip.x) * 0.5) * width
+    const sy = ((sideLm.y + tip.y) * 0.5 + faceScale * 0.008) * height
+    const sr = minSide * 0.048
+    const sg = mctx.createRadialGradient(sx, sy, 0, sx, sy, sr)
+    sg.addColorStop(0, 'rgba(255,255,255,0.7)')
+    sg.addColorStop(0.6, 'rgba(255,255,255,0.28)')
+    sg.addColorStop(1, 'rgba(255,255,255,0)')
+    mctx.fillStyle = sg
+    mctx.beginPath()
+    mctx.arc(sx, sy, sr, 0, Math.PI * 2)
+    mctx.fill()
+  }
+
+  return featherMask(mask, minSide * 0.016)
+}
+
+function strokeSoftBand(
+  mctx: CanvasRenderingContext2D,
+  pathPts: Point2D[],
+  width: number,
+  height: number,
+  minSide: number,
+  widths: { wide: number; mid: number; core: number },
+): void {
+  const stroke = (lineWidth: number, a: number) => {
+    mctx.strokeStyle = `rgba(255,255,255,${a})`
     mctx.lineWidth = lineWidth
     mctx.lineCap = 'round'
     mctx.lineJoin = 'round'
@@ -264,13 +362,9 @@ function cheekHollowMask(
     })
     mctx.stroke()
   }
-
-  // Wide soft base + denser core = recognizable contour band.
-  stroke(minSide * 0.11, 0.45)
-  stroke(minSide * 0.075, 0.75)
-  stroke(minSide * 0.045, 1)
-
-  return featherMask(mask, minSide * 0.022)
+  stroke(minSide * widths.wide, 0.42)
+  stroke(minSide * widths.mid, 0.72)
+  stroke(minSide * widths.core, 1)
 }
 
 function estimateContourFaceScale(landmarks: FaceLandmarkPoint[]): number {
@@ -754,39 +848,6 @@ function paintColorThroughMask(
   ctx.globalCompositeOperation = blend
   ctx.drawImage(tinted, 0, 0)
   ctx.restore()
-}
-
-function featheredSmoothRing(
-  points: Point2D[],
-  width: number,
-  height: number,
-  blurPx: number,
-  opts?: { radialCore?: number },
-): HTMLCanvasElement {
-  const mask = createCanvas(width, height)
-  const mctx = mask.getContext('2d')!
-  mctx.fillStyle = '#fff'
-  pathSmoothRing(mctx, points, width, height)
-  mctx.fill()
-  if (opts?.radialCore != null) {
-    const { cx, cy, radius } = boundsOf(points, width, height)
-    const g = mctx.createRadialGradient(
-      cx,
-      cy,
-      radius * opts.radialCore,
-      cx,
-      cy,
-      radius * 1.02,
-    )
-    g.addColorStop(0, 'rgba(255,255,255,1)')
-    g.addColorStop(0.7, 'rgba(255,255,255,0.75)')
-    g.addColorStop(1, 'rgba(255,255,255,0)')
-    mctx.globalCompositeOperation = 'destination-in'
-    mctx.fillStyle = g
-    mctx.fillRect(0, 0, width, height)
-    mctx.globalCompositeOperation = 'source-over'
-  }
-  return featherMask(mask, blurPx)
 }
 
 function softCircleMask(
