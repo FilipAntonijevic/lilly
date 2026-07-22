@@ -160,8 +160,8 @@ export function paintSoftMakeup(options: {
 }
 
 /**
- * Realistic contour: soft cheek hollows + feathered jaw shadow (sculpt, not a muddy strip).
- * Soft-light keeps skin texture; light multiply adds depth under the cheekbone.
+ * Realistic contour: elongated cheek-hollow bands + jaw sculpt (not tiny dots).
+ * Soft-light keeps skin texture; multiply adds depth under the cheekbone.
  */
 function paintContour(
   ctx: CanvasRenderingContext2D,
@@ -176,7 +176,7 @@ function paintContour(
   const faceOval = polygons.find((p) => p.id === 'faceOval')
   const faceClip =
     faceOval && faceOval.points.length >= 3
-      ? expandRing(faceOval.points, -0.01)
+      ? expandRing(faceOval.points, -0.008)
       : null
 
   const clip = (mask: HTMLCanvasElement) =>
@@ -186,33 +186,37 @@ function paintContour(
     const hollow = clip(
       cheekHollowMask(landmarks, side, width, height, minSide),
     )
-    // Depth under cheekbone
-    paintColorThroughMask(ctx, hollow, hex, alpha * 0.48, 'multiply')
-    // Soft sculpt so it doesn’t read as a dirty smear
-    paintColorThroughMask(ctx, hollow, hex, alpha * 0.38, 'soft-light')
+    paintColorThroughMask(ctx, hollow, hex, alpha * 0.62, 'multiply')
+    paintColorThroughMask(ctx, hollow, hex, alpha * 0.42, 'soft-light')
   }
 
   for (const id of ['jawLeft', 'jawRight'] as const) {
     const poly = polygons.find((p) => p.id === id)
     if (!poly || poly.points.length < 3) continue
-    const jaw = clip(
-      featheredSmoothRing(poly.points, width, height, minSide * 0.032, {
-        radialCore: 0.2,
+    const jawCore = clip(
+      featheredSmoothRing(poly.points, width, height, minSide * 0.022, {
+        radialCore: 0.28,
       }),
     )
-    paintColorThroughMask(ctx, jaw, hex, alpha * 0.22, 'multiply')
-    paintColorThroughMask(ctx, jaw, hex, alpha * 0.32, 'soft-light')
+    const jawSoft = clip(
+      featheredSmoothRing(poly.points, width, height, minSide * 0.04, {
+        radialCore: 0.15,
+      }),
+    )
+    paintColorThroughMask(ctx, jawCore, hex, alpha * 0.38, 'multiply')
+    paintColorThroughMask(ctx, jawSoft, hex, alpha * 0.4, 'soft-light')
   }
 
-  // Soft temple shadow — subtle frame, very light
   for (const side of ['left', 'right'] as const) {
     const temple = clip(
       templeShadowMask(landmarks, side, width, height, minSide),
     )
-    paintColorThroughMask(ctx, temple, hex, alpha * 0.16, 'soft-light')
+    paintColorThroughMask(ctx, temple, hex, alpha * 0.22, 'soft-light')
+    paintColorThroughMask(ctx, temple, hex, alpha * 0.12, 'multiply')
   }
 }
 
+/** Classic contour stripe under the cheekbone: ear → hollow → toward mouth. */
 function cheekHollowMask(
   landmarks: FaceLandmarkPoint[],
   side: 'left' | 'right',
@@ -220,41 +224,60 @@ function cheekHollowMask(
   height: number,
   minSide: number,
 ): HTMLCanvasElement {
-  const ear = landmarks[side === 'left' ? 234 : 454]
-  const apple = landmarks[side === 'left' ? 205 : 425]
-  const jaw = landmarks[side === 'left' ? 172 : 397]
-  const mouth = landmarks[side === 'left' ? 61 : 291]
+  // Path hugs the underside of the zygoma (not the blush apple).
+  const indices =
+    side === 'left'
+      ? ([234, 227, 116, 123, 147, 187, 205] as const)
+      : ([454, 447, 345, 352, 376, 411, 425] as const)
+
+  const pts = pointsFromIndices(landmarks, indices)
   const mask = createCanvas(width, height)
   const mctx = mask.getContext('2d')
-  if (!mctx || !ear || !apple || !jaw || !mouth) return mask
+  if (!mctx || pts.length < 3) return mask
 
-  // Hollow sits below the apple, between ear and jaw — classic contour placement.
-  const cx =
-    (ear.x * 0.28 + apple.x * 0.32 + jaw.x * 0.28 + mouth.x * 0.12) * width
-  const cy =
-    (ear.y * 0.12 + apple.y * 0.38 + jaw.y * 0.4 + mouth.y * 0.1) * height
+  // Pull the path slightly downward so it sits in the hollow, not on the apple.
+  const faceScale = estimateContourFaceScale(landmarks)
+  const sunk = pts.map((p, i) => {
+    // Keep ear start higher; sink mid/end into the hollow.
+    const t = i / Math.max(1, pts.length - 1)
+    const down = faceScale * (0.01 + t * 0.045)
+    const inward = faceScale * (0.008 + t * 0.02) * (side === 'left' ? 1 : -1)
+    return {
+      x: clamp01(p.x + inward * (t > 0.15 ? 1 : 0.3)),
+      y: clamp01(p.y + down),
+    }
+  })
+  // Stop before the mouth — drop the last apple-ish point weight by shortening.
+  const pathPts = sunk.slice(0, -1)
 
-  const dx = (mouth.x - ear.x) * width
-  const dy = (mouth.y - ear.y) * height
-  const angle = Math.atan2(dy, dx)
-  const rx = minSide * 0.095
-  const ry = minSide * 0.042
+  const stroke = (lineWidth: number, alpha: number) => {
+    mctx.strokeStyle = `rgba(255,255,255,${alpha})`
+    mctx.lineWidth = lineWidth
+    mctx.lineCap = 'round'
+    mctx.lineJoin = 'round'
+    mctx.beginPath()
+    pathPts.forEach((p, i) => {
+      const x = p.x * width
+      const y = p.y * height
+      if (i === 0) mctx.moveTo(x, y)
+      else mctx.lineTo(x, y)
+    })
+    mctx.stroke()
+  }
 
-  mctx.save()
-  mctx.translate(cx, cy)
-  mctx.rotate(angle)
-  const g = mctx.createRadialGradient(0, 0, 0, 0, 0, rx)
-  g.addColorStop(0, 'rgba(255,255,255,0.95)')
-  g.addColorStop(0.35, 'rgba(255,255,255,0.7)')
-  g.addColorStop(0.7, 'rgba(255,255,255,0.28)')
-  g.addColorStop(1, 'rgba(255,255,255,0)')
-  mctx.fillStyle = g
-  mctx.beginPath()
-  mctx.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2)
-  mctx.fill()
-  mctx.restore()
+  // Wide soft base + denser core = recognizable contour band.
+  stroke(minSide * 0.11, 0.45)
+  stroke(minSide * 0.075, 0.75)
+  stroke(minSide * 0.045, 1)
 
-  return featherMask(mask, minSide * 0.018)
+  return featherMask(mask, minSide * 0.022)
+}
+
+function estimateContourFaceScale(landmarks: FaceLandmarkPoint[]): number {
+  const a = landmarks[33]
+  const b = landmarks[263]
+  if (a && b) return Math.max(0.08, Math.hypot(a.x - b.x, a.y - b.y))
+  return 0.12
 }
 
 function templeShadowMask(
@@ -271,16 +294,17 @@ function templeShadowMask(
   const mctx = mask.getContext('2d')
   if (!mctx || !temple || !brow || !ear) return mask
 
-  const cx = (temple.x * 0.5 + brow.x * 0.25 + ear.x * 0.25) * width
-  const cy = (temple.y * 0.55 + brow.y * 0.35 + ear.y * 0.1) * height
-  const r = minSide * 0.055
-  const g = mctx.createRadialGradient(cx, cy, 0, cx, cy, r)
-  g.addColorStop(0, 'rgba(255,255,255,0.75)')
-  g.addColorStop(0.55, 'rgba(255,255,255,0.3)')
+  const cx = (temple.x * 0.45 + brow.x * 0.25 + ear.x * 0.3) * width
+  const cy = (temple.y * 0.5 + brow.y * 0.35 + ear.y * 0.15) * height
+  const rx = minSide * 0.07
+  const ry = minSide * 0.05
+  const g = mctx.createRadialGradient(cx, cy, 0, cx, cy, rx)
+  g.addColorStop(0, 'rgba(255,255,255,0.85)')
+  g.addColorStop(0.5, 'rgba(255,255,255,0.35)')
   g.addColorStop(1, 'rgba(255,255,255,0)')
   mctx.fillStyle = g
   mctx.beginPath()
-  mctx.arc(cx, cy, r, 0, Math.PI * 2)
+  mctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2)
   mctx.fill()
   return featherMask(mask, minSide * 0.02)
 }
