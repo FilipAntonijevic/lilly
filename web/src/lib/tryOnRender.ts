@@ -88,19 +88,16 @@ export function paintSoftMakeup(options: {
   })
 
   paintZoneIfActive(layers, 'contour', (alpha) => {
-    for (const id of ['jawLeft', 'jawRight'] as const) {
-      const poly = polygons.find((p) => p.id === id)
-      if (!poly || poly.points.length < 3) continue
-      const mask = featheredSmoothRing(poly.points, width, height, minSide * 0.014)
-      paintColorThroughMask(ctx, mask, layers.contour.product!.shadeHex, alpha, 'multiply')
-      paintColorThroughMask(
-        ctx,
-        featheredSmoothRing(poly.points, width, height, minSide * 0.03),
-        layers.contour.product!.shadeHex,
-        alpha * 0.4,
-        'multiply',
-      )
-    }
+    paintContour(
+      ctx,
+      landmarks,
+      polygons,
+      width,
+      height,
+      layers.contour.product!.shadeHex,
+      alpha,
+      minSide,
+    )
   })
 
   paintZoneIfActive(layers, 'underEye', (alpha) => {
@@ -160,6 +157,132 @@ export function paintSoftMakeup(options: {
       minSide,
     )
   })
+}
+
+/**
+ * Realistic contour: soft cheek hollows + feathered jaw shadow (sculpt, not a muddy strip).
+ * Soft-light keeps skin texture; light multiply adds depth under the cheekbone.
+ */
+function paintContour(
+  ctx: CanvasRenderingContext2D,
+  landmarks: FaceLandmarkPoint[],
+  polygons: EditableTryOnPolygon[],
+  width: number,
+  height: number,
+  hex: string,
+  alpha: number,
+  minSide: number,
+): void {
+  const faceOval = polygons.find((p) => p.id === 'faceOval')
+  const faceClip =
+    faceOval && faceOval.points.length >= 3
+      ? expandRing(faceOval.points, -0.01)
+      : null
+
+  const clip = (mask: HTMLCanvasElement) =>
+    faceClip ? clipMaskToRing(mask, faceClip, width, height) : mask
+
+  for (const side of ['left', 'right'] as const) {
+    const hollow = clip(
+      cheekHollowMask(landmarks, side, width, height, minSide),
+    )
+    // Depth under cheekbone
+    paintColorThroughMask(ctx, hollow, hex, alpha * 0.48, 'multiply')
+    // Soft sculpt so it doesn’t read as a dirty smear
+    paintColorThroughMask(ctx, hollow, hex, alpha * 0.38, 'soft-light')
+  }
+
+  for (const id of ['jawLeft', 'jawRight'] as const) {
+    const poly = polygons.find((p) => p.id === id)
+    if (!poly || poly.points.length < 3) continue
+    const jaw = clip(
+      featheredSmoothRing(poly.points, width, height, minSide * 0.032, {
+        radialCore: 0.2,
+      }),
+    )
+    paintColorThroughMask(ctx, jaw, hex, alpha * 0.22, 'multiply')
+    paintColorThroughMask(ctx, jaw, hex, alpha * 0.32, 'soft-light')
+  }
+
+  // Soft temple shadow — subtle frame, very light
+  for (const side of ['left', 'right'] as const) {
+    const temple = clip(
+      templeShadowMask(landmarks, side, width, height, minSide),
+    )
+    paintColorThroughMask(ctx, temple, hex, alpha * 0.16, 'soft-light')
+  }
+}
+
+function cheekHollowMask(
+  landmarks: FaceLandmarkPoint[],
+  side: 'left' | 'right',
+  width: number,
+  height: number,
+  minSide: number,
+): HTMLCanvasElement {
+  const ear = landmarks[side === 'left' ? 234 : 454]
+  const apple = landmarks[side === 'left' ? 205 : 425]
+  const jaw = landmarks[side === 'left' ? 172 : 397]
+  const mouth = landmarks[side === 'left' ? 61 : 291]
+  const mask = createCanvas(width, height)
+  const mctx = mask.getContext('2d')
+  if (!mctx || !ear || !apple || !jaw || !mouth) return mask
+
+  // Hollow sits below the apple, between ear and jaw — classic contour placement.
+  const cx =
+    (ear.x * 0.28 + apple.x * 0.32 + jaw.x * 0.28 + mouth.x * 0.12) * width
+  const cy =
+    (ear.y * 0.12 + apple.y * 0.38 + jaw.y * 0.4 + mouth.y * 0.1) * height
+
+  const dx = (mouth.x - ear.x) * width
+  const dy = (mouth.y - ear.y) * height
+  const angle = Math.atan2(dy, dx)
+  const rx = minSide * 0.095
+  const ry = minSide * 0.042
+
+  mctx.save()
+  mctx.translate(cx, cy)
+  mctx.rotate(angle)
+  const g = mctx.createRadialGradient(0, 0, 0, 0, 0, rx)
+  g.addColorStop(0, 'rgba(255,255,255,0.95)')
+  g.addColorStop(0.35, 'rgba(255,255,255,0.7)')
+  g.addColorStop(0.7, 'rgba(255,255,255,0.28)')
+  g.addColorStop(1, 'rgba(255,255,255,0)')
+  mctx.fillStyle = g
+  mctx.beginPath()
+  mctx.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2)
+  mctx.fill()
+  mctx.restore()
+
+  return featherMask(mask, minSide * 0.018)
+}
+
+function templeShadowMask(
+  landmarks: FaceLandmarkPoint[],
+  side: 'left' | 'right',
+  width: number,
+  height: number,
+  minSide: number,
+): HTMLCanvasElement {
+  const temple = landmarks[side === 'left' ? 127 : 356]
+  const brow = landmarks[side === 'left' ? 70 : 300]
+  const ear = landmarks[side === 'left' ? 234 : 454]
+  const mask = createCanvas(width, height)
+  const mctx = mask.getContext('2d')
+  if (!mctx || !temple || !brow || !ear) return mask
+
+  const cx = (temple.x * 0.5 + brow.x * 0.25 + ear.x * 0.25) * width
+  const cy = (temple.y * 0.55 + brow.y * 0.35 + ear.y * 0.1) * height
+  const r = minSide * 0.055
+  const g = mctx.createRadialGradient(cx, cy, 0, cx, cy, r)
+  g.addColorStop(0, 'rgba(255,255,255,0.75)')
+  g.addColorStop(0.55, 'rgba(255,255,255,0.3)')
+  g.addColorStop(1, 'rgba(255,255,255,0)')
+  mctx.fillStyle = g
+  mctx.beginPath()
+  mctx.arc(cx, cy, r, 0, Math.PI * 2)
+  mctx.fill()
+  return featherMask(mask, minSide * 0.02)
 }
 
 function paintZoneIfActive(
