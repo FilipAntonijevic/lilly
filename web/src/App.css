@@ -7,8 +7,8 @@
 }
 
 .app.phase-idle {
-  height: 100vh;
-  height: 100dvh;
+  height: 100svh;
+  max-height: 100svh;
   overflow: hidden;
 }
 
@@ -83,22 +83,23 @@
   color: var(--foam);
 }
 
-/* —— Landing (one screen, no scroll) —— */
+/* —— Landing (one screen, always fits phone incl. Safari chrome) —— */
 .landing {
   position: relative;
-  height: 100%;
-  min-height: 100vh;
-  min-height: 100dvh;
-  max-height: 100dvh;
+  box-sizing: border-box;
+  height: 100svh;
+  min-height: 100svh;
+  max-height: 100svh;
   overflow: hidden;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
+  gap: 0.75rem;
   padding:
     max(0.55rem, env(safe-area-inset-top, 0px))
-    max(1.1rem, env(safe-area-inset-right, 0px))
-    max(1.1rem, env(safe-area-inset-bottom, 0px))
-    max(1.1rem, env(safe-area-inset-left, 0px));
+    max(1rem, env(safe-area-inset-right, 0px))
+    max(1rem, env(safe-area-inset-bottom, 0px))
+    max(1rem, env(safe-area-inset-left, 0px));
   background:
     linear-gradient(180deg, rgba(26, 22, 20, 0.12) 0%, rgba(26, 22, 20, 0.5) 100%),
     radial-gradient(ellipse 80% 60% at 70% 30%, rgba(232, 160, 144, 0.45), transparent 60%),
@@ -109,8 +110,10 @@
 
 .landing-top {
   flex: 0 1 auto;
+  width: 100%;
   max-width: 36rem;
   padding-right: 4.5rem; /* room for language toggle */
+  min-width: 0;
   min-height: 0;
 }
 
@@ -119,16 +122,21 @@
   width: 100%;
   max-width: 36rem;
   margin-top: auto;
-  padding-top: 0.75rem;
+  padding-top: 0.5rem;
+  min-width: 0;
 }
 
 .landing-tip {
-  margin: 0 0 0.85rem;
-  max-width: none;
-  font-size: clamp(1.17rem, 3.9vw, 1.38rem);
+  display: block;
+  width: 100%;
+  margin: 0 0 0.75rem;
+  max-width: 100%;
+  min-width: 0;
+  font-size: 1.2rem;
   line-height: 1.3;
   letter-spacing: 0.01em;
   white-space: nowrap;
+  overflow: hidden;
   color: rgba(255, 248, 243, 0.72);
   animation: rise 0.8s 0.28s ease both;
 }
@@ -143,16 +151,16 @@
 .cta-tile {
   aspect-ratio: 1;
   width: 100%;
-  max-height: min(42vw, 11.5rem);
+  max-height: min(38vw, 22svh, 10.5rem);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.65rem;
-  padding: 0.85rem 0.7rem;
+  gap: 0.55rem;
+  padding: 0.75rem 0.6rem;
   border-radius: 1rem;
   font-weight: 600;
-  font-size: clamp(0.78rem, 2.8vw, 0.95rem);
+  font-size: clamp(0.72rem, 2.6vw, 0.92rem);
   line-height: 1.2;
   text-align: center;
   transition: transform 0.2s ease, background 0.2s ease, border-color 0.2s ease;
@@ -207,8 +215,8 @@
 }
 
 .landing .brand {
-  font-size: clamp(4rem, 18vw, 6.75rem);
-  margin: 0 0 0.55rem;
+  font-size: clamp(2.75rem, min(16vw, 11svh), 5.75rem);
+  margin: 0 0 0.45rem;
 }
 
 .brand.compact {
@@ -218,14 +226,19 @@
   color: var(--foam);
 }
 
+.landing-headline,
 .landing h1 {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  margin: 0;
   font-family: var(--font-display);
   font-weight: 700;
-  font-size: clamp(1.05rem, 4.2vw, 1.65rem);
+  font-size: 1.45rem;
   line-height: 1.2;
-  margin: 0;
-  max-width: none;
   white-space: nowrap;
+  overflow: hidden;
   animation: rise 0.8s 0.2s ease both;
 }
 
@@ -1607,25 +1620,38 @@
   }
 }
 
-@media (max-height: 620px) {
+@media (max-height: 720px) {
   .landing .brand {
-    font-size: clamp(3rem, 14vw, 4.5rem);
-  }
-
-  .landing h1 {
-    font-size: 1.05rem;
-  }
-
-  .landing-tip {
-    font-size: 1.17rem;
-    margin-bottom: 0.65rem;
+    font-size: clamp(2.4rem, min(14vw, 9.5svh), 4.25rem);
   }
 
   .cta-tile {
-    max-height: min(36vw, 8.5rem);
-    gap: 0.45rem;
-    padding: 0.65rem 0.5rem;
-    font-size: 0.75rem;
+    max-height: min(34vw, 18svh, 8.75rem);
+    gap: 0.4rem;
+    padding: 0.55rem 0.45rem;
+    font-size: 0.72rem;
+  }
+
+  .cta-tile-icon {
+    width: clamp(1.4rem, 5.5vw, 1.9rem);
+    height: clamp(1.4rem, 5.5vw, 1.9rem);
+  }
+
+  .landing-tip {
+    margin-bottom: 0.55rem;
+  }
+}
+
+@media (max-height: 620px) {
+  .landing .brand {
+    font-size: clamp(2.1rem, min(12vw, 8svh), 3.4rem);
+  }
+
+  .cta-tile {
+    max-height: min(30vw, 16svh, 7.5rem);
+    gap: 0.35rem;
+    padding: 0.45rem 0.4rem;
+    font-size: 0.68rem;
   }
 
   .btn-primary,

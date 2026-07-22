@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { CameraStage } from './components/CameraStage'
+import { FitOneLine } from './components/FitOneLine'
 import { LanguageToggle } from './components/LanguageToggle'
 import { TryOnPanel } from './components/TryOnPanel'
 import { loadActiveCatalog } from './data/catalog'
@@ -247,10 +248,21 @@ export default function App() {
           <LanguageToggle className="lang-toggle-landing" />
           <header className="landing-top">
             <p className="brand">Lilly</p>
-            <h1>{t('landing.headline')}</h1>
+            <FitOneLine
+              as="h1"
+              className="landing-headline"
+              text={t('landing.headline')}
+              maxPx={26}
+              minPx={13}
+            />
           </header>
           <footer className="landing-bottom">
-            <p className="landing-tip">{t('landing.tip')}</p>
+            <FitOneLine
+              className="landing-tip"
+              text={t('landing.tip')}
+              maxPx={22}
+              minPx={11}
+            />
             <div className="cta-group">
               <button
                 type="button"
