@@ -104,6 +104,14 @@ export default function App() {
     setPhase('idle')
   }
 
+  // Landing is a fixed one-screen layout — never inherit try-on scroll position.
+  useEffect(() => {
+    if (phase !== 'idle') return
+    window.scrollTo(0, 0)
+    document.documentElement.scrollTop = 0
+    document.body.scrollTop = 0
+  }, [phase])
+
   useEffect(() => {
     writeHistory('idle', 'replace')
 
