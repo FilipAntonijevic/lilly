@@ -349,15 +349,18 @@ export function MakeupTryOn({
 
         <div className="tryon-zone-panel">
           {cardProduct && activeLayer.product ? (
-            <ProductCard
-              product={cardProduct}
-              catalog={catalog}
-              selected={activeLayer.product}
-              onSelectedChange={(product) => {
-                updateActiveLayer({ product })
-              }}
-              onProductClick={() => setPickerOpen(true)}
-            />
+            <>
+              <p className="tryon-choose-label">{t('tryon.chooseProduct')}</p>
+              <ProductCard
+                product={cardProduct}
+                catalog={catalog}
+                selected={activeLayer.product}
+                onSelectedChange={(product) => {
+                  updateActiveLayer({ product })
+                }}
+                onProductClick={() => setPickerOpen(true)}
+              />
+            </>
           ) : (
             <p className="zone-empty">{t('results.emptyZone')}</p>
           )}

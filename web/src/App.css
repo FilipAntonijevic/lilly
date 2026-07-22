@@ -854,6 +854,15 @@
   margin-top: 0.85rem;
 }
 
+.tryon-choose-label {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--ink-soft);
+}
+
 .tryon-zone-actions {
   display: flex;
   flex-wrap: wrap;
