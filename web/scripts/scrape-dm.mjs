@@ -3,7 +3,7 @@
  * Collects shade names + hex swatches for Lilly matching.
  *
  * Usage: node scripts/scrape-dm.mjs
- * Output: src/data/products.json + src/data/dm-raw.json
+ * Output: src/data/dm/products.json + src/data/dm/dm-raw.json
  */
 
 import { writeFileSync, mkdirSync } from 'node:fs'
@@ -11,7 +11,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
-const OUT_DIR = join(__dirname, '../src/data')
+const OUT_DIR = join(__dirname, '../src/data/dm')
 const PUBLIC_DIR = join(__dirname, '../public')
 const API = 'https://product-search.services.dmtech.com/rs/search'
 const PAGE_SIZE = 30
@@ -319,6 +319,7 @@ async function main() {
   // Strip heavy debug fields from products.json used by the app
   const forApp = all.map(({ lab, ita, dmCategories, ...rest }) => rest)
 
+  mkdirSync(OUT_DIR, { recursive: true })
   writeFileSync(join(OUT_DIR, 'dm-raw.json'), JSON.stringify(all, null, 2), 'utf8')
   writeFileSync(join(OUT_DIR, 'products.json'), JSON.stringify(forApp, null, 2), 'utf8')
   writeFileSync(join(PUBLIC_DIR, 'products.json'), JSON.stringify(forApp, null, 2), 'utf8')
@@ -331,7 +332,7 @@ async function main() {
   console.log('\nDone.')
   console.log('Products:', forApp.length)
   console.log('By category:', byCat)
-  console.log('Wrote public/products.json, src/data/products.json, src/data/dm-raw.json')
+  console.log('Wrote public/products.json, src/data/dm/products.json, src/data/dm/dm-raw.json')
 }
 
 main().catch((err) => {

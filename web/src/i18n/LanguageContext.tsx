@@ -6,6 +6,7 @@ import {
   useState,
   type ReactNode,
 } from 'react'
+import { chainConfig } from '../config/chain'
 import {
   translate,
   type Locale,
@@ -13,7 +14,7 @@ import {
   type TranslateFn,
 } from './messages'
 
-const STORAGE_KEY = 'lilly.locale'
+const STORAGE_KEY = chainConfig.localeStorageKey
 
 interface LanguageContextValue {
   locale: Locale

@@ -1,4 +1,5 @@
 import type { MakeupProduct } from '../types'
+import { CHAIN } from '../config/chain'
 import { DEMO_CATALOG } from './demoCatalog'
 import { normalizeCatalog } from '../lib/normalizeCatalog'
 
@@ -6,8 +7,17 @@ let cached: { products: MakeupProduct[]; usingDemo: boolean } | null = null
 let loading: Promise<{ products: MakeupProduct[]; usingDemo: boolean }> | null =
   null
 
+async function importChainCatalog(): Promise<MakeupProduct[]> {
+  if (CHAIN === 'lilly') {
+    const mod = await import('./lilly/products.json')
+    return (mod.default ?? mod) as MakeupProduct[]
+  }
+  const mod = await import('./dm/products.json')
+  return (mod.default ?? mod) as MakeupProduct[]
+}
+
 /**
- * DM katalog se učitava kao bundlovani JSON chunk (imageUrl, priceRsd, url uvek tu).
+ * Active chain catalog as a bundled JSON chunk.
  * Ne zavisi od runtime fetch-a /products.json.
  */
 export async function loadActiveCatalog(): Promise<{
@@ -18,8 +28,7 @@ export async function loadActiveCatalog(): Promise<{
   if (!loading) {
     loading = (async () => {
       try {
-        const mod = await import('./products.json')
-        const store = (mod.default ?? mod) as MakeupProduct[]
+        const store = await importChainCatalog()
         cached =
           Array.isArray(store) && store.length > 0
             ? { products: normalizeCatalog(store), usingDemo: false }

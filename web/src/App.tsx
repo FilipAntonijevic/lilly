@@ -3,6 +3,7 @@ import { CameraStage } from './components/CameraStage'
 import { FitOneLine } from './components/FitOneLine'
 import { LanguageToggle } from './components/LanguageToggle'
 import { TryOnPanel } from './components/TryOnPanel'
+import { chainConfig } from './config/chain'
 import { loadActiveCatalog } from './data/catalog'
 import { useLanguage } from './i18n/LanguageContext'
 import { analyzeCapturedImage } from './lib/analyzeFace'
@@ -310,7 +311,7 @@ export default function App() {
         <section className="landing">
           <LanguageToggle className="lang-toggle-landing" />
           <header className="landing-top">
-            <p className="brand">Lilly</p>
+            <p className="brand">{chainConfig.brandName}</p>
             <FitOneLine
               as="h1"
               className="landing-headline"
@@ -376,7 +377,7 @@ export default function App() {
       {(phase === 'camera' || phase === 'analyzing') && (
         <section className="studio">
           <header className="studio-top">
-            <p className="brand compact">Lilly</p>
+            <p className="brand compact">{chainConfig.brandName}</p>
             {phase === 'analyzing' && (
               <p className="analyzing-label">{analyzingLabel}</p>
             )}

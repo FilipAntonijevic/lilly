@@ -3,7 +3,7 @@ export type Locale = 'sr' | 'en'
 const sr = {
   'landing.headline': 'Pronađi i isprobaj šminku sada!',
   'landing.tip': 'Za najbolje rezultate koristi fotku na prirodnom svetlu.',
-  'landing.catalogCount': 'Katalog: {count} artikala sa dm.rs',
+  'landing.catalogCount': 'Katalog: {count} artikala sa {shop}',
   'landing.takeSelfie': 'Uslikaj selfie',
   'landing.uploadSelfie': 'Otpremi iz galerije',
   'lang.sr': 'SR',
@@ -94,8 +94,8 @@ const sr = {
   'product.priceUnavailable': 'Cena nije dostupna',
   'product.shade': 'nijansa {name}',
   'product.shades': 'Dostupne nijanse',
-  'product.viewDm': 'Pogledaj na dm.rs →',
-  'product.openDm': '{name}, {price}, otvori na dm.rs',
+  'product.viewDm': 'Pogledaj na {shop} →',
+  'product.openDm': '{name}, {price}, otvori na {shop}',
 
   'depth.very_light': 'Veoma svetla',
   'depth.light': 'Svetla',
@@ -200,7 +200,7 @@ export type MessageKey = keyof typeof sr
 const en: Record<MessageKey, string> = {
   'landing.headline': 'Find and test makeup now!',
   'landing.tip': 'Use photo in natural lighting for best results.',
-  'landing.catalogCount': 'Catalog: {count} products from dm.rs',
+  'landing.catalogCount': 'Catalog: {count} products from {shop}',
   'landing.takeSelfie': 'Take a selfie',
   'landing.uploadSelfie': 'Upload from gallery',
   'lang.sr': 'SR',
@@ -291,8 +291,8 @@ const en: Record<MessageKey, string> = {
   'product.priceUnavailable': 'Price unavailable',
   'product.shade': 'shade {name}',
   'product.shades': 'Available shades',
-  'product.viewDm': 'View on dm.rs →',
-  'product.openDm': '{name}, {price}, open on dm.rs',
+  'product.viewDm': 'View on {shop} →',
+  'product.openDm': '{name}, {price}, open on {shop}',
 
   'depth.very_light': 'Very light',
   'depth.light': 'Light',

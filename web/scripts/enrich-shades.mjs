@@ -7,8 +7,8 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
-const DATA = join(__dirname, '../src/data/products.json')
-const RAW = join(__dirname, '../src/data/dm-raw.json')
+const DATA = join(__dirname, '../src/data/dm/products.json')
+const RAW = join(__dirname, '../src/data/dm/dm-raw.json')
 const PUBLIC = join(__dirname, '../public/products.json')
 
 function parseShadeName(title, url = '') {

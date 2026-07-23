@@ -124,7 +124,7 @@ export interface MakeupProduct {
   priceRsd?: number
   gtin?: string
   dan?: string
-  source?: 'dm' | 'demo'
+  source?: 'dm' | 'lilly' | 'demo'
   isDemo?: boolean
 }
 

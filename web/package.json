@@ -5,7 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:dm": "vite --mode dm",
+    "dev:lilly": "vite --mode lilly",
     "build": "tsc -b && vite build",
+    "build:dm": "tsc -b && vite build --mode dm",
+    "build:lilly": "tsc -b && vite build --mode lilly",
     "lint": "oxlint",
     "preview": "vite preview",
     "predeploy": "npm run build",

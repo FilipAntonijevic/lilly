@@ -7,6 +7,7 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from 'react'
 import type { MakeupProduct } from '../types'
+import { chainConfig } from '../config/chain'
 import { useLanguage } from '../i18n/LanguageContext'
 import { fitFontToLineBox } from '../lib/fitTwoLineText'
 import { tickHaptic } from '../lib/haptics'
@@ -182,6 +183,7 @@ export function ProductCard({
           aria-label={t('product.openDm', {
             name: selected.name,
             price: priceLabel,
+            shop: chainConfig.shopHost,
           })}
         >
           {linkBody}
