@@ -5,7 +5,7 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from 'react'
 import { useLanguage } from '../i18n/LanguageContext'
-import { buildDmCartUrl } from '../lib/dmCartUrl'
+import { buildShopCartUrl } from '../lib/shopCartUrl'
 import { fitFontToLineBox } from '../lib/fitTwoLineText'
 import { tickHaptic } from '../lib/haptics'
 import type { MakeupProduct } from '../types'
@@ -276,7 +276,7 @@ export function TryOnCartSheet({
             <footer className="tryon-cart-sheet-footer">
               <a
                 className="btn-tryon-cart tryon-cart-view-shop"
-                href={buildDmCartUrl(items)}
+                href={buildShopCartUrl(items)}
                 target="_blank"
                 rel="noreferrer"
               >

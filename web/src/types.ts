@@ -123,7 +123,10 @@ export interface MakeupProduct {
   imageUrl?: string
   priceRsd?: number
   gtin?: string
+  /** dm.rs article number (DAN) */
   dan?: string
+  /** Lilly Magento SKU (from product URL suffix) */
+  sku?: string
   source?: 'dm' | 'lilly' | 'demo'
   isDemo?: boolean
 }
