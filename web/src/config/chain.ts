@@ -4,7 +4,7 @@ export type ChainId = 'dm' | 'lilly'
  * Default chain for local/dev and production builds.
  * Override at build time with VITE_CHAIN=lilly (or .env).
  */
-const DEFAULT_CHAIN: ChainId = 'dm'
+const DEFAULT_CHAIN: ChainId = 'lilly'
 
 function resolveChain(): ChainId {
   const raw = (import.meta.env.VITE_CHAIN as string | undefined)?.trim().toLowerCase()

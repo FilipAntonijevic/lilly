@@ -12,7 +12,7 @@
     "build:lilly": "tsc -b && vite build --mode lilly",
     "lint": "oxlint",
     "preview": "vite preview",
-    "predeploy": "npm run build",
+    "predeploy": "npm run build:lilly",
     "deploy": "gh-pages -d dist",
     "scrape:dm": "node scripts/scrape-dm.mjs",
     "scrape:lilly": "node scripts/scrape-lilly-from-dm.mjs"
