@@ -122,28 +122,28 @@ export function buildTryOnPolygons(
       const centerIdx = CIRCLE_CENTER_INDEX[id]
       const centerLm = centerIdx != null ? landmarks[centerIdx] : null
       if (!centerLm) continue
-      // Apple of the cheek (landmark 205/425), pulled toward the nose so the
-      // soft circle stays inside the face silhouette and never crosses the jaw/cheek edge.
-      const apple = landmarks[id === 'leftCheek' ? 50 : 280]
+      // Sit high on the zygomatic bone (the cheekbone) near the face edge.
+      // outer = lateral cheekbone toward the face edge; high = upper cheek.
+      const outer = landmarks[id === 'leftCheek' ? 123 : 352]
       const high = landmarks[id === 'leftCheek' ? 117 : 346]
-      const ax = apple?.x ?? centerLm.x
-      const ay = apple?.y ?? centerLm.y
+      const ox = outer?.x ?? centerLm.x
+      const oy = outer?.y ?? centerLm.y
       const hx = high?.x ?? centerLm.x
       const hy = high?.y ?? centerLm.y
-      // Weight toward medial apple / nose side; small compact brush on skin.
+      // Small compact brush right on the cheekbone.
       const radius = faceScale * 0.2
       const center = {
-        x: clamp01(centerLm.x * 0.45 + ax * 0.4 + hx * 0.15),
-        y: clamp01(centerLm.y * 0.5 + ay * 0.35 + hy * 0.15),
+        x: clamp01(centerLm.x * 0.35 + ox * 0.4 + hx * 0.25),
+        y: clamp01(centerLm.y * 0.4 + oy * 0.3 + hy * 0.3),
       }
-      // Nudge toward the nose (medial) and slightly down onto the apple.
-      const medial = faceScale * 0.055
+      // Push toward the face edge (outward) and up onto the cheekbone.
+      const outward = faceScale * 0.05
       if (id === 'leftCheek') {
-        center.x = clamp01(center.x + medial)
-        center.y = clamp01(center.y + faceScale * 0.02)
+        center.x = clamp01(center.x - outward)
+        center.y = clamp01(center.y - faceScale * 0.03)
       } else if (id === 'rightCheek') {
-        center.x = clamp01(center.x - medial)
-        center.y = clamp01(center.y + faceScale * 0.02)
+        center.x = clamp01(center.x + outward)
+        center.y = clamp01(center.y - faceScale * 0.03)
       }
       out.push({
         id,

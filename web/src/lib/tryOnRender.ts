@@ -117,8 +117,9 @@ export function paintSoftMakeup(options: {
   })
 
   paintZoneIfActive(layers, 'cheeks', (alpha) => {
-    // Firm inset — blush is medial (toward the nose) and must stay inside the cheek.
-    const faceClip = faceInteriorClipRing(landmarks, polygons, 0.032)
+    // Blush sits high on the cheekbone near the edge; keep a small inset so it
+    // hugs the cheekbone but still never crosses the face silhouette line.
+    const faceClip = faceInteriorClipRing(landmarks, polygons, 0.02)
     for (const id of ['leftCheek', 'rightCheek'] as const) {
       const poly = polygons.find((p) => p.id === id)
       if (!poly || poly.kind !== 'circle' || poly.points.length < 2) continue
