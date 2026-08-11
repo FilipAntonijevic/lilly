@@ -130,8 +130,8 @@ export function buildTryOnPolygons(
       const ay = apple?.y ?? centerLm.y
       const hx = high?.x ?? centerLm.x
       const hy = high?.y ?? centerLm.y
-      // Weight toward medial apple / nose side; keep a compact brush on skin.
-      const radius = faceScale * 0.3
+      // Weight toward medial apple / nose side; small compact brush on skin.
+      const radius = faceScale * 0.2
       const center = {
         x: clamp01(centerLm.x * 0.45 + ax * 0.4 + hx * 0.15),
         y: clamp01(centerLm.y * 0.5 + ay * 0.35 + hy * 0.15),
