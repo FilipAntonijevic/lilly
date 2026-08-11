@@ -76,8 +76,8 @@ export const TRYON_BASE_ALPHA: Record<FaceZoneId, number> = {
   underEye: 0.68,
   // Stronger blush payoff on the apple; still clipped inside the face oval.
   cheeks: 0.78,
-  // 2× previous contour strength for clearer side sculpt on front-facing selfies.
-  contour: 1.5,
+  // Softer, more diffuse contour — relies on wide feathered spill, not hard lines.
+  contour: 1.1,
   lips: 0.95,
   // 2× previous strength: slider 50% ≈ old 100%, slider 100% ≈ old 200%.
   eyes: 1.44,

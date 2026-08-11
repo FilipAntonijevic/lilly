@@ -202,25 +202,25 @@ function paintContour(
       // 1) Forehead corner + temple (along the hairline)
       paintSoft(
         temporalRegionMask(landmarks, side, width, height, minSide),
-        0.34,
-        0.32,
+        0.22,
+        0.26,
       )
       // 2) Main side contour — ONE connected line: cheekbone hollow → jawline
       paintSoft(
         sideContourMask(landmarks, side, width, height, minSide),
-        0.7,
-        0.46,
+        0.48,
+        0.4,
       )
       // 3) Nose sides — two narrow lines down the bridge
       paintSoft(
         nasalDorsumSideMask(landmarks, side, width, height, minSide),
-        0.22,
-        0.22,
+        0.15,
+        0.17,
       )
     }
 
     // 4) Subtle shadow under the chin (cervicomental angle)
-    paintSoft(submentalMask(landmarks, width, height, minSide), 0.16, 0.2)
+    paintSoft(submentalMask(landmarks, width, height, minSide), 0.12, 0.16)
   })
 }
 
@@ -275,9 +275,11 @@ function strokeSoftContourBand(
     })
     mctx.stroke()
   }
-  stroke(minSide * widths.wide, 0.35)
-  stroke(minSide * widths.mid, 0.62)
-  stroke(minSide * widths.core, 0.9)
+  // Lower peak opacities + a very wide faint pass = diffuse shadow, not a line.
+  stroke(minSide * widths.wide * 1.8, 0.16)
+  stroke(minSide * widths.wide, 0.26)
+  stroke(minSide * widths.mid, 0.42)
+  stroke(minSide * widths.core, 0.58)
 }
 
 function lerpPoint(a: Point2D, b: Point2D, t: number): Point2D {
@@ -337,11 +339,11 @@ function temporalRegionMask(
     y: clamp01(temple.y * 0.15 + browTail.y * 0.5 + zygoma.y * 0.35),
   }
   strokeSoftContourBand(mctx, [start, mid, end], width, height, minSide, {
-    wide: 0.055,
-    mid: 0.034,
-    core: 0.018,
+    wide: 0.066,
+    mid: 0.04,
+    core: 0.022,
   })
-  return featherMask(mask, minSide * 0.02)
+  return featherMask(mask, minSide * 0.032)
 }
 
 /**
@@ -433,19 +435,20 @@ function sideContourMask(
     width,
     height,
     minSide,
-    { wide: 0.05, mid: 0.03, core: 0.016 },
+    { wide: 0.064, mid: 0.04, core: 0.022 },
   )
-  // Extra depth in the buccal hollow (the main shadow of the chart).
+  // Extra depth in the buccal hollow (the main shadow of the chart) — wide + soft.
   fillSoftEllipse(
     mctx,
     (front.x * 0.2 + hollow.x * 0.55 + ear.x * 0.25) * width,
     (front.y * 0.2 + hollow.y * 0.55 + ear.y * 0.25) * height,
-    minSide * 0.058,
-    minSide * 0.024,
+    minSide * 0.07,
+    minSide * 0.032,
     Math.atan2((ear.y - front.y) * height, (ear.x - front.x) * width),
-    0.7,
+    0.5,
   )
-  return featherMask(mask, minSide * 0.016)
+  // Bigger spill: extra blur so the whole side reads as a diffuse shadow.
+  return featherMask(mask, minSide * 0.032)
 }
 
 /**
@@ -486,11 +489,11 @@ function nasalDorsumSideMask(
   }
 
   strokeSoftContourBand(mctx, [p0, p1, p2], width, height, minSide, {
-    wide: 0.018,
-    mid: 0.011,
-    core: 0.006,
+    wide: 0.02,
+    mid: 0.013,
+    core: 0.007,
   })
-  return featherMask(mask, minSide * 0.01)
+  return featherMask(mask, minSide * 0.016)
 }
 
 /**
