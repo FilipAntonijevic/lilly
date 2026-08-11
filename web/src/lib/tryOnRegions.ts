@@ -121,17 +121,28 @@ export function buildTryOnPolygons(
       const centerIdx = CIRCLE_CENTER_INDEX[id]
       const centerLm = centerIdx != null ? landmarks[centerIdx] : null
       if (!centerLm) continue
-      // faceScale ≈ inter-ocular distance in norm space (~0.12–0.25).
-      // Keep blush on the apple; paint path also clips to the face oval.
-      const radius = faceScale * 0.34
-      const center = { x: clamp01(centerLm.x), y: clamp01(centerLm.y) }
-      // Slightly toward the nose / down so the soft circle stays on skin.
+      // Outer cheek / zygoma ridge — blush sits on the photographed cheekbone
+      // near the face edge (toward the ear), not toward the nose.
+      const outer = landmarks[id === 'leftCheek' ? 123 : 352]
+      const ridge = landmarks[id === 'leftCheek' ? 116 : 345]
+      // Compact brush on the lateral apple.
+      const radius = faceScale * 0.24
+      const ox = outer?.x ?? centerLm.x
+      const oy = outer?.y ?? centerLm.y
+      const rx = ridge?.x ?? centerLm.x
+      const ry = ridge?.y ?? centerLm.y
+      const center = {
+        x: clamp01(centerLm.x * 0.35 + ox * 0.4 + rx * 0.25),
+        y: clamp01(centerLm.y * 0.45 + oy * 0.3 + ry * 0.25),
+      }
+      // Nudge toward the face edge / ear (outward), slight up onto the cheekbone.
+      const outward = faceScale * 0.045
       if (id === 'leftCheek') {
-        center.x = clamp01(center.x + faceScale * 0.02)
-        center.y = clamp01(center.y + faceScale * 0.03)
+        center.x = clamp01(center.x - outward)
+        center.y = clamp01(center.y - faceScale * 0.01)
       } else if (id === 'rightCheek') {
-        center.x = clamp01(center.x - faceScale * 0.02)
-        center.y = clamp01(center.y + faceScale * 0.03)
+        center.x = clamp01(center.x + outward)
+        center.y = clamp01(center.y - faceScale * 0.01)
       }
       out.push({
         id,

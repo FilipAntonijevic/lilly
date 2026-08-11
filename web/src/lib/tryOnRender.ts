@@ -114,8 +114,8 @@ export function paintSoftMakeup(options: {
   })
 
   paintZoneIfActive(layers, 'cheeks', (alpha) => {
-    // Tighter interior oval — blush stays on-face even at higher intensity.
-    const faceClip = faceInteriorClipRing(landmarks, polygons, 0.048)
+    // Light inset so lateral cheekbone blush can sit near the face edge.
+    const faceClip = faceInteriorClipRing(landmarks, polygons, 0.026)
     for (const id of ['leftCheek', 'rightCheek'] as const) {
       const poly = polygons.find((p) => p.id === id)
       if (!poly || poly.kind !== 'circle' || poly.points.length < 2) continue
@@ -173,7 +173,8 @@ function paintContour(
   alpha: number,
   minSide: number,
 ): void {
-  const faceClip = faceInteriorClipRing(landmarks, polygons, 0.04)
+  // Shallow inset — contour lives near the face edge (ears / jaw), not mid-face.
+  const faceClip = faceInteriorClipRing(landmarks, polygons, 0.022)
 
   const clip = (mask: HTMLCanvasElement) => {
     if (!faceClip) return mask
@@ -195,38 +196,38 @@ function paintContour(
       // 1) Temporal — lateral forehead near temporal hairline → zygoma
       paintSoft(
         temporalRegionMask(landmarks, side, width, height, minSide),
-        0.14,
-        0.22,
+        0.16,
+        0.24,
       )
-      // 2–3) Zygomatic / submalar — inferior to zygomatic arch, stop before nasolabial
+      // 2–3) Zygomatic / submalar — lateral hollow near the ear, not toward the nose
       paintSoft(
         submalarHollowMask(landmarks, side, width, height, minSide),
-        0.52,
-        0.38,
+        0.55,
+        0.4,
       )
       // 4) Mandibular — inferior border of mandible, angle → toward chin (not chin pad)
       paintSoft(
         mandibularBorderMask(landmarks, side, width, height, minSide),
-        0.34,
+        0.36,
         0.3,
       )
       // 5) Masseteric — very subtle lateral lower-cheek slim
       paintSoft(
         massetericMask(landmarks, side, width, height, minSide),
-        0.12,
-        0.18,
+        0.14,
+        0.2,
       )
       // 6) Nasal dorsum sides — narrow, light
       paintSoft(
         nasalDorsumSideMask(landmarks, side, width, height, minSide),
-        0.16,
-        0.2,
+        0.14,
+        0.18,
       )
       // 7) Alar / tip sides
       paintSoft(
         nasalAlarMask(landmarks, side, width, height, minSide),
-        0.12,
-        0.16,
+        0.1,
+        0.14,
       )
     }
 
@@ -323,23 +324,23 @@ function temporalRegionMask(
   if (!mctx || !temple || !hair || !brow || !zygoma) return mask
 
   const faceScale = estimateContourFaceScale(landmarks)
-  const inward = faceScale * 0.028 * (side === 'left' ? 1 : -1)
-  // Blend hairline → temple → outer brow; slight pull toward zygoma (not center forehead).
+  // Stay near the hairline / ear — only a tiny on-face inset (front-facing photos).
+  const inset = faceScale * 0.012 * (side === 'left' ? 1 : -1)
   const start = {
-    x: clamp01(hair.x * 0.55 + temple.x * 0.35 + brow.x * 0.1 + inward),
+    x: clamp01(hair.x * 0.5 + temple.x * 0.4 + zygoma.x * 0.1 + inset),
     y: clamp01(hair.y * 0.55 + temple.y * 0.35 + brow.y * 0.1),
   }
   const end = {
-    x: clamp01(temple.x * 0.35 + brow.x * 0.35 + zygoma.x * 0.3 + inward * 0.6),
-    y: clamp01(temple.y * 0.25 + brow.y * 0.45 + zygoma.y * 0.3),
+    x: clamp01(temple.x * 0.25 + brow.x * 0.2 + zygoma.x * 0.55 + inset * 0.5),
+    y: clamp01(temple.y * 0.2 + brow.y * 0.35 + zygoma.y * 0.45),
   }
   const mid = lerpPoint(start, end, 0.55)
   strokeSoftContourBand(mctx, [start, mid, end], width, height, minSide, {
-    wide: 0.055,
-    mid: 0.034,
-    core: 0.018,
+    wide: 0.05,
+    mid: 0.03,
+    core: 0.016,
   })
-  return featherMask(mask, minSide * 0.02)
+  return featherMask(mask, minSide * 0.018)
 }
 
 /**
@@ -366,45 +367,52 @@ function submalarHollowMask(
   }
 
   const faceScale = estimateContourFaceScale(landmarks)
-  const inward = faceScale * 0.03 * (side === 'left' ? 1 : -1)
+  // Front-facing: keep contour near the ear / face edge, far from the nose.
+  const inset = faceScale * 0.014 * (side === 'left' ? 1 : -1)
 
-  // Path under the arch: start inset from preauricular, through hollow, stop ~55% to mouth.
+  // Short lateral path: preauricular → outer zygoma hollow. Stop early (not toward mouth/nose).
   const start = {
-    x: clamp01(preauricular.x * 0.4 + zygomaSide.x * 0.4 + apple.x * 0.2 + inward),
+    x: clamp01(preauricular.x * 0.65 + zygomaSide.x * 0.3 + apple.x * 0.05 + inset),
     y: clamp01(
-      preauricular.y * 0.15 +
-        zygomaSide.y * 0.35 +
-        apple.y * 0.35 +
-        hollow.y * 0.15 +
-        faceScale * 0.02,
+      preauricular.y * 0.2 +
+        zygomaSide.y * 0.45 +
+        apple.y * 0.25 +
+        hollow.y * 0.1 +
+        faceScale * 0.015,
     ),
   }
   const mid = {
-    x: clamp01(apple.x * 0.25 + hollow.x * 0.55 + zygomaSide.x * 0.2 + inward * 0.5),
-    // Sit below malar apex (apple), into the submalar depression.
-    y: clamp01(apple.y * 0.25 + hollow.y * 0.55 + mouth.y * 0.2 + faceScale * 0.01),
+    x: clamp01(
+      preauricular.x * 0.25 +
+        zygomaSide.x * 0.45 +
+        apple.x * 0.25 +
+        hollow.x * 0.05 +
+        inset * 0.6,
+    ),
+    // Below malar apex, still on the lateral cheek.
+    y: clamp01(apple.y * 0.4 + hollow.y * 0.35 + zygomaSide.y * 0.25 + faceScale * 0.012),
   }
-  const end = lerpPoint(mid, mouth, 0.42)
-  end.x = clamp01(end.x + inward * 0.2)
-  // Keep clear of nasolabial — nudge slightly lateral/up from mouth corner.
-  end.y = clamp01(end.y - faceScale * 0.01)
+  // Only a short diagonal toward mid-cheek — never near the nasolabial / nose.
+  const end = lerpPoint(mid, mouth, 0.18)
+  end.x = clamp01(end.x * 0.35 + mid.x * 0.65 + inset * 0.3)
+  end.y = clamp01(end.y - faceScale * 0.005)
 
   strokeSoftContourBand(mctx, [start, mid, end], width, height, minSide, {
-    wide: 0.07,
-    mid: 0.044,
-    core: 0.024,
+    wide: 0.058,
+    mid: 0.036,
+    core: 0.02,
   })
-  // Soft fill in the hollow core (not on the bone crest).
+  // Soft fill stays lateral (weighted toward mid/start, not toward mouth).
   fillSoftEllipse(
     mctx,
-    mid.x * width,
-    mid.y * height,
-    minSide * 0.07,
-    minSide * 0.034,
+    (start.x * 0.25 + mid.x * 0.6 + end.x * 0.15) * width,
+    (start.y * 0.2 + mid.y * 0.65 + end.y * 0.15) * height,
+    minSide * 0.055,
+    minSide * 0.028,
     Math.atan2((end.y - start.y) * height, (end.x - start.x) * width),
-    0.75,
+    0.72,
   )
-  return featherMask(mask, minSide * 0.018)
+  return featherMask(mask, minSide * 0.016)
 }
 
 /**
@@ -427,29 +435,29 @@ function mandibularBorderMask(
   if (!mctx || !angle || !mid || !nearChin || !chin) return mask
 
   const faceScale = estimateContourFaceScale(landmarks)
-  const inward = faceScale * 0.022 * (side === 'left' ? 1 : -1)
-  // Bias slightly upward onto the underside of the jaw border (still on-face).
-  const up = faceScale * 0.006
+  // Stay on the outer jaw border (near ear/angle), not pulled toward center.
+  const inset = faceScale * 0.01 * (side === 'left' ? 1 : -1)
+  const up = faceScale * 0.004
 
   const p0 = {
-    x: clamp01(angle.x + inward),
+    x: clamp01(angle.x + inset),
     y: clamp01(angle.y - up),
   }
   const p1 = {
-    x: clamp01(mid.x + inward * 0.7),
+    x: clamp01(mid.x + inset * 0.5),
     y: clamp01(mid.y - up),
   }
-  // Stop before the central chin prominence.
-  const p2 = lerpPoint(nearChin, chin, 0.28)
-  p2.x = clamp01(p2.x + inward * 0.35)
+  // Stop well before the central chin prominence.
+  const p2 = lerpPoint(nearChin, chin, 0.12)
+  p2.x = clamp01(p2.x + inset * 0.2)
   p2.y = clamp01(p2.y - up)
 
   strokeSoftContourBand(mctx, [p0, p1, p2], width, height, minSide, {
-    wide: 0.048,
-    mid: 0.03,
-    core: 0.016,
+    wide: 0.044,
+    mid: 0.028,
+    core: 0.015,
   })
-  return featherMask(mask, minSide * 0.016)
+  return featherMask(mask, minSide * 0.014)
 }
 
 /**
@@ -470,20 +478,21 @@ function massetericMask(
   if (!mctx || !angle || !masseter || !cheek) return mask
 
   const faceScale = estimateContourFaceScale(landmarks)
-  const inward = faceScale * 0.04 * (side === 'left' ? 1 : -1)
+  const inset = faceScale * 0.012 * (side === 'left' ? 1 : -1)
+  // Weight toward the outer jaw/masseter, away from the nose.
   const cx =
-    (masseter.x * 0.45 + cheek.x * 0.3 + angle.x * 0.25 + inward) * width
-  const cy = (masseter.y * 0.45 + cheek.y * 0.25 + angle.y * 0.3) * height
+    (masseter.x * 0.35 + cheek.x * 0.2 + angle.x * 0.45 + inset) * width
+  const cy = (masseter.y * 0.4 + cheek.y * 0.2 + angle.y * 0.4) * height
   fillSoftEllipse(
     mctx,
     cx,
     cy,
-    minSide * 0.045,
-    minSide * 0.07,
+    minSide * 0.038,
+    minSide * 0.06,
     0,
-    0.65,
+    0.6,
   )
-  return featherMask(mask, minSide * 0.02)
+  return featherMask(mask, minSide * 0.018)
 }
 
 /**
