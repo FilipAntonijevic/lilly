@@ -155,8 +155,8 @@ const sr = {
   'zone.cheeks.target': 'Leva i desna jagodica',
   'zone.cheeks.tip': 'Rumenilo u tonu undertone-a za svež izgled.',
   'zone.contour.label': 'Kontura',
-  'zone.contour.target': 'Obodi lica / vilica',
-  'zone.contour.tip': 'Bronzer ili kontura — topliji, dublji ton od pudera.',
+  'zone.contour.target': 'Ispod jagodica / vilica / slepoočnice',
+  'zone.contour.tip': 'Bronzer ili kontura — udubljenje ispod jagodica, ne ivica lica.',
   'zone.lips.label': 'Usne',
   'zone.lips.target': 'Usne',
   'zone.lips.tip':
@@ -352,8 +352,8 @@ const en: Record<MessageKey, string> = {
   'zone.cheeks.target': 'Left and right cheek',
   'zone.cheeks.tip': 'Blush in your undertone family for a fresh look.',
   'zone.contour.label': 'Contour',
-  'zone.contour.target': 'Face edges / jaw',
-  'zone.contour.tip': 'Bronzer or contour — warmer and deeper than foundation.',
+  'zone.contour.target': 'Under cheekbones / jaw / temples',
+  'zone.contour.tip': 'Bronzer or contour — hollow under the cheekbone, not the face edge.',
   'zone.lips.label': 'Lips',
   'zone.lips.target': 'Lips',
   'zone.lips.tip':

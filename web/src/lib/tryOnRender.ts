@@ -158,9 +158,12 @@ export function paintSoftMakeup(options: {
 }
 
 /**
- * Contour in 4 zones (2 per side), always clipped inside the face oval:
- * 1) Cheekbone toward the ear (stays on-face, not past the silhouette)
- * 2) Jawline
+ * Realistic contour (makeup placement, not side-of-face strips):
+ * 1) Cheek hollow — short diagonal ellipse under the zygoma (ear → toward mouth,
+ *    stopping ~halfway; never a full-length side line)
+ * 2) Jaw angle — soft shadow under the mandibular corner only
+ * 3) Temples — light frame near the hairline
+ * Always clipped inside the face oval (no ear spill).
  */
 function paintContour(
   ctx: CanvasRenderingContext2D,
@@ -172,7 +175,6 @@ function paintContour(
   alpha: number,
   minSide: number,
 ): void {
-  // Interior oval (no ear tips) + hard inset — contour never past face silhouette.
   const faceClip = faceInteriorClipRing(landmarks, polygons, 0.042)
 
   const clip = (mask: HTMLCanvasElement) => {
@@ -182,131 +184,163 @@ function paintContour(
 
   paintInsideFaceClip(ctx, faceClip, width, height, () => {
     for (const side of ['left', 'right'] as const) {
-      const cheekbone = clip(
-        cheekboneBandMask(landmarks, side, width, height, minSide),
+      const hollow = clip(
+        cheekHollowMask(landmarks, side, width, height, minSide),
       )
-      paintColorThroughMask(ctx, cheekbone, hex, alpha * 0.62, 'multiply')
-      paintColorThroughMask(ctx, cheekbone, hex, alpha * 0.38, 'soft-light')
+      paintColorThroughMask(ctx, hollow, hex, alpha * 0.55, 'multiply')
+      paintColorThroughMask(ctx, hollow, hex, alpha * 0.4, 'soft-light')
     }
 
     for (const side of ['left', 'right'] as const) {
       const jaw = clip(
-        jawlineBandMask(landmarks, side, width, height, minSide),
+        jawAngleMask(landmarks, side, width, height, minSide),
       )
-      paintColorThroughMask(ctx, jaw, hex, alpha * 0.52, 'multiply')
-      paintColorThroughMask(ctx, jaw, hex, alpha * 0.36, 'soft-light')
+      paintColorThroughMask(ctx, jaw, hex, alpha * 0.32, 'multiply')
+      paintColorThroughMask(ctx, jaw, hex, alpha * 0.28, 'soft-light')
+    }
+
+    for (const side of ['left', 'right'] as const) {
+      const temple = clip(
+        templeShadowMask(landmarks, side, width, height, minSide),
+      )
+      paintColorThroughMask(ctx, temple, hex, alpha * 0.18, 'soft-light')
     }
   })
 }
 
 /**
- * Upper contour: along the cheekbone toward the ear, kept inside the face.
- * Stops short of the ear landmark so the band cannot paint into background.
+ * Primary contour: hollow under the cheekbone.
+ * Classic placement — suck in cheeks; short diagonal from near-ear toward the
+ * mouth corner, stopping well before the lips (not a vertical face-edge line).
  */
-function cheekboneBandMask(
+function cheekHollowMask(
   landmarks: FaceLandmarkPoint[],
   side: 'left' | 'right',
   width: number,
   height: number,
   minSide: number,
 ): HTMLCanvasElement {
-  // On-face cheekbone points only — no ear silhouette (234 / 454).
-  const indices =
-    side === 'left'
-      ? ([123, 116, 143, 227] as const)
-      : ([352, 345, 372, 447] as const)
-
-  const pts = pointsFromIndices(landmarks, indices)
+  const ear = landmarks[side === 'left' ? 234 : 454]
+  const apple = landmarks[side === 'left' ? 205 : 425]
+  const hollow = landmarks[side === 'left' ? 50 : 280]
+  const mouth = landmarks[side === 'left' ? 61 : 291]
   const mask = createCanvas(width, height)
   const mctx = mask.getContext('2d')
-  if (!mctx || pts.length < 3) return mask
+  if (!mctx || !ear || !apple || !hollow || !mouth) return mask
 
-  const faceScale = estimateContourFaceScale(landmarks)
-  const pathPts = pts.map((p, i) => {
-    const t = i / Math.max(1, pts.length - 1)
-    // Pull inward toward face center (never outward past the cheek).
-    const inward = faceScale * (0.022 + t * 0.02) * (side === 'left' ? 1 : -1)
-    const up = faceScale * 0.008
-    return {
-      x: clamp01(p.x + inward),
-      y: clamp01(p.y - up),
-    }
-  })
+  // Start inset from the ear (on-face), end ~55% toward the mouth — 2-finger stop.
+  const startX = ear.x * 0.35 + apple.x * 0.45 + hollow.x * 0.2
+  const startY = ear.y * 0.2 + apple.y * 0.55 + hollow.y * 0.25
+  const endX = ear.x * 0.08 + apple.x * 0.22 + hollow.x * 0.35 + mouth.x * 0.35
+  const endY = ear.y * 0.05 + apple.y * 0.35 + hollow.y * 0.35 + mouth.y * 0.25
 
-  strokeSoftBand(mctx, pathPts, width, height, minSide, {
-    wide: 0.036,
-    mid: 0.024,
-    core: 0.014,
-  })
-  // Feather first, caller clips to inset face oval afterward.
-  return featherMask(mask, minSide * 0.008)
+  const cx = ((startX + endX) * 0.5) * width
+  // Sit just under the bone (slightly below the apple).
+  const cy = ((startY + endY) * 0.5 + (apple.y - hollow.y) * 0.12) * height
+
+  const dx = (endX - startX) * width
+  const dy = (endY - startY) * height
+  const angle = Math.atan2(dy, dx)
+  const len = Math.hypot(dx, dy)
+  // Short soft ellipse along the hollow — not a full face-side stroke.
+  const rx = Math.max(minSide * 0.055, Math.min(minSide * 0.11, len * 0.55))
+  const ry = minSide * 0.038
+
+  mctx.save()
+  mctx.translate(cx, cy)
+  mctx.rotate(angle)
+  const g = mctx.createRadialGradient(0, 0, 0, 0, 0, rx)
+  g.addColorStop(0, 'rgba(255,255,255,0.95)')
+  g.addColorStop(0.32, 'rgba(255,255,255,0.72)')
+  g.addColorStop(0.65, 'rgba(255,255,255,0.28)')
+  g.addColorStop(1, 'rgba(255,255,255,0)')
+  mctx.fillStyle = g
+  mctx.beginPath()
+  mctx.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2)
+  mctx.fill()
+  mctx.restore()
+
+  return featherMask(mask, minSide * 0.016)
 }
 
 /**
- * Lower contour: jawline inside the face, stops before chin tip / ear edge.
+ * Soft jaw definition at the mandibular angle only — not a full-length side band.
  */
-function jawlineBandMask(
+function jawAngleMask(
   landmarks: FaceLandmarkPoint[],
   side: 'left' | 'right',
   width: number,
   height: number,
   minSide: number,
 ): HTMLCanvasElement {
-  // Skip ear (234/454) — start on the jaw side inside the silhouette.
-  const indices =
-    side === 'left'
-      ? ([93, 132, 58, 172, 136, 150] as const)
-      : ([323, 361, 288, 397, 365, 379] as const)
-
-  const pts = pointsFromIndices(landmarks, indices)
+  const ear = landmarks[side === 'left' ? 234 : 454]
+  const angle = landmarks[side === 'left' ? 172 : 397]
+  const mid = landmarks[side === 'left' ? 58 : 288]
+  const chinSide = landmarks[side === 'left' ? 136 : 365]
   const mask = createCanvas(width, height)
   const mctx = mask.getContext('2d')
-  if (!mctx || pts.length < 3) return mask
+  if (!mctx || !ear || !angle || !mid || !chinSide) return mask
+
+  // Cluster around the jaw corner; stay short of the chin tip.
+  const cx =
+    (ear.x * 0.12 + mid.x * 0.28 + angle.x * 0.45 + chinSide.x * 0.15) * width
+  const cy =
+    (ear.y * 0.08 + mid.y * 0.22 + angle.y * 0.5 + chinSide.y * 0.2) * height
 
   const faceScale = estimateContourFaceScale(landmarks)
-  const pathPts = pts.map((p, i) => {
-    const t = i / Math.max(1, pts.length - 1)
-    const inward = faceScale * (0.028 + t * 0.016) * (side === 'left' ? 1 : -1)
-    const up = faceScale * 0.01
-    return {
-      x: clamp01(p.x + inward),
-      y: clamp01(p.y - up),
-    }
-  })
+  const inward = faceScale * 0.035 * (side === 'left' ? 1 : -1)
+  const rx = minSide * 0.07
+  const ry = minSide * 0.032
+  const tilt = Math.atan2(
+    (chinSide.y - mid.y) * height,
+    (chinSide.x - mid.x) * width,
+  )
 
-  strokeSoftBand(mctx, pathPts, width, height, minSide, {
-    wide: 0.044,
-    mid: 0.028,
-    core: 0.016,
-  })
-  return featherMask(mask, minSide * 0.008)
+  mctx.save()
+  mctx.translate(cx + inward * width, cy - faceScale * 0.01 * height)
+  mctx.rotate(tilt)
+  const g = mctx.createRadialGradient(0, 0, 0, 0, 0, rx)
+  g.addColorStop(0, 'rgba(255,255,255,0.85)')
+  g.addColorStop(0.45, 'rgba(255,255,255,0.4)')
+  g.addColorStop(1, 'rgba(255,255,255,0)')
+  mctx.fillStyle = g
+  mctx.beginPath()
+  mctx.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2)
+  mctx.fill()
+  mctx.restore()
+
+  return featherMask(mask, minSide * 0.014)
 }
 
-function strokeSoftBand(
-  mctx: CanvasRenderingContext2D,
-  pathPts: Point2D[],
+/** Soft temple frame near the outer forehead / hairline. */
+function templeShadowMask(
+  landmarks: FaceLandmarkPoint[],
+  side: 'left' | 'right',
   width: number,
   height: number,
   minSide: number,
-  widths: { wide: number; mid: number; core: number },
-): void {
-  const stroke = (lineWidth: number, a: number) => {
-    mctx.strokeStyle = `rgba(255,255,255,${a})`
-    mctx.lineWidth = lineWidth
-    mctx.lineCap = 'round'
-    mctx.lineJoin = 'round'
-    mctx.beginPath()
-    pathPts.forEach((p, i) => {
-      const x = p.x * width
-      const y = p.y * height
-      if (i === 0) mctx.moveTo(x, y)
-      else mctx.lineTo(x, y)
-    })
-    mctx.stroke()
-  }
-  stroke(minSide * widths.wide, 0.42)
-  stroke(minSide * widths.mid, 0.72)
-  stroke(minSide * widths.core, 1)
+): HTMLCanvasElement {
+  const temple = landmarks[side === 'left' ? 127 : 356]
+  const brow = landmarks[side === 'left' ? 70 : 300]
+  const hair = landmarks[side === 'left' ? 54 : 284]
+  const mask = createCanvas(width, height)
+  const mctx = mask.getContext('2d')
+  if (!mctx || !temple || !brow || !hair) return mask
+
+  const faceScale = estimateContourFaceScale(landmarks)
+  const inward = faceScale * 0.02 * (side === 'left' ? 1 : -1)
+  const cx = (temple.x * 0.45 + brow.x * 0.3 + hair.x * 0.25 + inward) * width
+  const cy = (temple.y * 0.4 + brow.y * 0.35 + hair.y * 0.25) * height
+  const r = minSide * 0.052
+  const g = mctx.createRadialGradient(cx, cy, 0, cx, cy, r)
+  g.addColorStop(0, 'rgba(255,255,255,0.7)')
+  g.addColorStop(0.55, 'rgba(255,255,255,0.28)')
+  g.addColorStop(1, 'rgba(255,255,255,0)')
+  mctx.fillStyle = g
+  mctx.beginPath()
+  mctx.arc(cx, cy, r, 0, Math.PI * 2)
+  mctx.fill()
+  return featherMask(mask, minSide * 0.018)
 }
 
 function estimateContourFaceScale(landmarks: FaceLandmarkPoint[]): number {
