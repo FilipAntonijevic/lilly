@@ -117,9 +117,9 @@ export function paintSoftMakeup(options: {
   })
 
   paintZoneIfActive(layers, 'cheeks', (alpha) => {
-    // Blush sits high on the cheekbone near the edge; keep a small inset so it
-    // hugs the cheekbone but still never crosses the face silhouette line.
-    const faceClip = faceInteriorClipRing(landmarks, polygons, 0.02)
+    // Strict containment: inset the interior face silhouette so the feathered
+    // blush can never spill onto pixels outside the face.
+    const faceClip = faceInteriorClipRing(landmarks, polygons, 0.03)
     for (const id of ['leftCheek', 'rightCheek'] as const) {
       const poly = polygons.find((p) => p.id === id)
       if (!poly || poly.kind !== 'circle' || poly.points.length < 2) continue
@@ -176,9 +176,9 @@ function paintContour(
   alpha: number,
   minSide: number,
 ): void {
-  // Contour must reach toward the ears; use the full face oval (incl. ear tips)
-  // with a tiny inset so under-blush → ear bands are not clipped away on portraits.
-  const faceClip = faceOvalClipRing(landmarks, polygons, 0.006)
+  // Strict containment: clip to the interior face silhouette (ears excluded)
+  // with a real inset so contour color can NEVER land on the ear/background.
+  const faceClip = faceInteriorClipRing(landmarks, polygons, 0.018)
 
   const clip = (mask: HTMLCanvasElement) => {
     if (!faceClip) return mask
@@ -1072,24 +1072,6 @@ function faceInteriorClipRing(
     if (!faceOval || faceOval.points.length < 3) return null
     pts = faceOval.points
   }
-  return expandRing(pts, -Math.abs(insetNorm))
-}
-
-/**
- * Full MediaPipe face oval including ear tips (234 / 454) — used for contour
- * so under-blush → ear bands can reach the sides of a portrait crop.
- */
-function faceOvalClipRing(
-  landmarks: FaceLandmarkPoint[],
-  polygons: EditableTryOnPolygon[],
-  insetNorm: number,
-): Point2D[] | null {
-  const faceOval = polygons.find((p) => p.id === 'faceOval')
-  let pts =
-    faceOval && faceOval.points.length >= 3
-      ? faceOval.points
-      : pointsFromIndices(landmarks, FACE_INTERIOR_OVAL)
-  if (pts.length < 3) return null
   return expandRing(pts, -Math.abs(insetNorm))
 }
 

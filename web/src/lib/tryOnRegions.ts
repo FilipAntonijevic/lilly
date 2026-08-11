@@ -136,8 +136,8 @@ export function buildTryOnPolygons(
         x: clamp01(centerLm.x * 0.35 + ox * 0.4 + hx * 0.25),
         y: clamp01(centerLm.y * 0.4 + oy * 0.3 + hy * 0.3),
       }
-      // Push toward the face edge (outward) and up onto the cheekbone.
-      const outward = faceScale * 0.05
+      // Toward the cheekbone but not all the way to the edge (clip keeps it in).
+      const outward = faceScale * 0.035
       if (id === 'leftCheek') {
         center.x = clamp01(center.x - outward)
         center.y = clamp01(center.y - faceScale * 0.01)
