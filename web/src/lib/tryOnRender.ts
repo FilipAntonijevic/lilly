@@ -114,8 +114,8 @@ export function paintSoftMakeup(options: {
   })
 
   paintZoneIfActive(layers, 'cheeks', (alpha) => {
-    // Light inset so lateral cheekbone blush can sit near the face edge.
-    const faceClip = faceInteriorClipRing(landmarks, polygons, 0.026)
+    // Firm inset — blush is medial (toward the nose) and must stay inside the cheek.
+    const faceClip = faceInteriorClipRing(landmarks, polygons, 0.032)
     for (const id of ['leftCheek', 'rightCheek'] as const) {
       const poly = polygons.find((p) => p.id === id)
       if (!poly || poly.kind !== 'circle' || poly.points.length < 2) continue
@@ -173,8 +173,9 @@ function paintContour(
   alpha: number,
   minSide: number,
 ): void {
-  // Shallow inset — contour lives near the face edge (ears / jaw), not mid-face.
-  const faceClip = faceInteriorClipRing(landmarks, polygons, 0.022)
+  // Contour must reach toward the ears; use the full face oval (incl. ear tips)
+  // with a tiny inset so under-blush → ear bands are not clipped away on portraits.
+  const faceClip = faceOvalClipRing(landmarks, polygons, 0.006)
 
   const clip = (mask: HTMLCanvasElement) => {
     if (!faceClip) return mask
@@ -199,11 +200,11 @@ function paintContour(
         0.16,
         0.24,
       )
-      // 2–3) Zygomatic / submalar — lateral hollow near the ear, not toward the nose
+      // 2–3) Main kontura: starts directly under the blush apple → runs to the ear
       paintSoft(
         submalarHollowMask(landmarks, side, width, height, minSide),
-        0.55,
-        0.4,
+        0.7,
+        0.48,
       )
       // 4) Mandibular — inferior border of mandible, angle → toward chin (not chin pad)
       paintSoft(
@@ -344,9 +345,10 @@ function temporalRegionMask(
 }
 
 /**
- * 2–3) Zygomatic / submalar — main contour inferior to zygomatic arch.
- * Preauricular → lateral cheek hollow; stop before nasolabial fold / mouth corner.
- * Does NOT sit on the highest malar prominence.
+ * 2–3) Zygomatic / submalar — main kontura under the blush apple → ear.
+ * Starts directly beneath the cheek blush circle and runs outward to the
+ * preauricular / ear landmark (even when that side is foreshortened in a portrait).
+ * Does NOT sit on the highest malar prominence (blush lives there).
  */
 function submalarHollowMask(
   landmarks: FaceLandmarkPoint[],
@@ -355,62 +357,66 @@ function submalarHollowMask(
   height: number,
   minSide: number,
 ): HTMLCanvasElement {
-  const preauricular = requireLm(landmarks, side === 'left' ? 234 : 454)
-  const zygomaSide = requireLm(landmarks, side === 'left' ? 116 : 345)
   const apple = requireLm(landmarks, side === 'left' ? 205 : 425)
-  const hollow = requireLm(landmarks, side === 'left' ? 50 : 280)
-  const mouth = requireLm(landmarks, side === 'left' ? 61 : 291)
+  const medialApple = requireLm(landmarks, side === 'left' ? 50 : 280)
+  const zygoma = requireLm(landmarks, side === 'left' ? 123 : 352)
+  const ridge = requireLm(landmarks, side === 'left' ? 116 : 345)
+  const midCheek = requireLm(landmarks, side === 'left' ? 147 : 376)
+  const preauricular = requireLm(landmarks, side === 'left' ? 234 : 454)
   const mask = createCanvas(width, height)
   const mctx = mask.getContext('2d')
-  if (!mctx || !preauricular || !zygomaSide || !apple || !hollow || !mouth) {
+  if (!mctx || !apple || !zygoma || !ridge || !preauricular) {
     return mask
   }
 
   const faceScale = estimateContourFaceScale(landmarks)
-  // Front-facing: keep contour near the ear / face edge, far from the nose.
-  const inset = faceScale * 0.014 * (side === 'left' ? 1 : -1)
+  // Match blush medial bias so the contour origin sits under the painted circle.
+  const medial = faceScale * 0.055 * (side === 'left' ? 1 : -1)
+  const blushCx = clamp01(
+    apple.x * 0.45 + (medialApple?.x ?? apple.x) * 0.4 + zygoma.x * 0.15 + medial,
+  )
+  const blushCy = clamp01(
+    apple.y * 0.5 + (medialApple?.y ?? apple.y) * 0.35 + ridge.y * 0.15 + faceScale * 0.02,
+  )
 
-  // Short lateral path: preauricular → outer zygoma hollow. Stop early (not toward mouth/nose).
+  // Start just under the blush circle (slightly below its center).
   const start = {
-    x: clamp01(preauricular.x * 0.65 + zygomaSide.x * 0.3 + apple.x * 0.05 + inset),
-    y: clamp01(
-      preauricular.y * 0.2 +
-        zygomaSide.y * 0.45 +
-        apple.y * 0.25 +
-        hollow.y * 0.1 +
-        faceScale * 0.015,
-    ),
+    x: blushCx,
+    y: clamp01(blushCy + faceScale * 0.055),
   }
+  // Mid: outer zygoma / mid-cheek, still below the arch.
   const mid = {
     x: clamp01(
-      preauricular.x * 0.25 +
-        zygomaSide.x * 0.45 +
-        apple.x * 0.25 +
-        hollow.x * 0.05 +
-        inset * 0.6,
+      (midCheek?.x ?? zygoma.x) * 0.35 + zygoma.x * 0.35 + ridge.x * 0.2 + preauricular.x * 0.1,
     ),
-    // Below malar apex, still on the lateral cheek.
-    y: clamp01(apple.y * 0.4 + hollow.y * 0.35 + zygomaSide.y * 0.25 + faceScale * 0.012),
+    y: clamp01(
+      start.y * 0.35 +
+        (midCheek?.y ?? zygoma.y) * 0.35 +
+        zygoma.y * 0.2 +
+        ridge.y * 0.1 +
+        faceScale * 0.01,
+    ),
   }
-  // Only a short diagonal toward mid-cheek — never near the nasolabial / nose.
-  const end = lerpPoint(mid, mouth, 0.18)
-  end.x = clamp01(end.x * 0.35 + mid.x * 0.65 + inset * 0.3)
-  end.y = clamp01(end.y - faceScale * 0.005)
+  // End at the ear — keep the line even when the portrait crops that side.
+  const end = {
+    x: clamp01(preauricular.x * 0.85 + zygoma.x * 0.15),
+    y: clamp01(preauricular.y * 0.55 + mid.y * 0.35 + start.y * 0.1),
+  }
 
   strokeSoftContourBand(mctx, [start, mid, end], width, height, minSide, {
-    wide: 0.058,
-    mid: 0.036,
-    core: 0.02,
+    wide: 0.052,
+    mid: 0.032,
+    core: 0.018,
   })
-  // Soft fill stays lateral (weighted toward mid/start, not toward mouth).
+  // Soft fill along the band (under apple → ear), not on the blush apex.
   fillSoftEllipse(
     mctx,
-    (start.x * 0.25 + mid.x * 0.6 + end.x * 0.15) * width,
-    (start.y * 0.2 + mid.y * 0.65 + end.y * 0.15) * height,
-    minSide * 0.055,
-    minSide * 0.028,
+    (start.x * 0.2 + mid.x * 0.55 + end.x * 0.25) * width,
+    (start.y * 0.25 + mid.y * 0.55 + end.y * 0.2) * height,
+    minSide * 0.06,
+    minSide * 0.026,
     Math.atan2((end.y - start.y) * height, (end.x - start.x) * width),
-    0.72,
+    0.75,
   )
   return featherMask(mask, minSide * 0.016)
 }
@@ -1148,6 +1154,24 @@ function faceInteriorClipRing(
     if (!faceOval || faceOval.points.length < 3) return null
     pts = faceOval.points
   }
+  return expandRing(pts, -Math.abs(insetNorm))
+}
+
+/**
+ * Full MediaPipe face oval including ear tips (234 / 454) — used for contour
+ * so under-blush → ear bands can reach the sides of a portrait crop.
+ */
+function faceOvalClipRing(
+  landmarks: FaceLandmarkPoint[],
+  polygons: EditableTryOnPolygon[],
+  insetNorm: number,
+): Point2D[] | null {
+  const faceOval = polygons.find((p) => p.id === 'faceOval')
+  let pts =
+    faceOval && faceOval.points.length >= 3
+      ? faceOval.points
+      : pointsFromIndices(landmarks, FACE_INTERIOR_OVAL)
+  if (pts.length < 3) return null
   return expandRing(pts, -Math.abs(insetNorm))
 }
 
