@@ -124,7 +124,7 @@ export function paintSoftMakeup(options: {
         circleRadius(poly),
         width,
         height,
-        minSide * 0.022,
+        minSide * 0.01,
       )
       if (faceClip) {
         mask = clipMaskToRing(mask, faceClip, width, height)
@@ -1102,11 +1102,13 @@ function softCircleMask(
   const cx = center.x * width
   const cy = center.y * height
   const r = Math.max(4, radiusNorm * Math.min(width, height))
+  // Flat plateau + thin soft rim: intensity (alpha) deepens the color inside a
+  // FIXED circle instead of revealing a long faint tail (which looked like the
+  // circle growing / spilling past the face when intensity increased).
   const gradient = mctx.createRadialGradient(cx, cy, 0, cx, cy, r)
   gradient.addColorStop(0, 'rgba(255,255,255,1)')
-  gradient.addColorStop(0.25, 'rgba(255,255,255,0.95)')
-  gradient.addColorStop(0.55, 'rgba(255,255,255,0.55)')
-  gradient.addColorStop(0.82, 'rgba(255,255,255,0.18)')
+  gradient.addColorStop(0.78, 'rgba(255,255,255,1)')
+  gradient.addColorStop(0.92, 'rgba(255,255,255,0.72)')
   gradient.addColorStop(1, 'rgba(255,255,255,0)')
   mctx.fillStyle = gradient
   mctx.beginPath()
