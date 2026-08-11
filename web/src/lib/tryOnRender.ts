@@ -158,10 +158,9 @@ export function paintSoftMakeup(options: {
 }
 
 /**
- * Anatomical contour: soft natural shadows only — never hard side-of-face strips.
- * Zones (bilateral where applicable):
- * temporal → zygomatic/submalar → masseteric → mandibular → nasal dorsum/alar → submental.
- * High points (malar apex, nasal dorsum center, forehead center, chin pad) stay clear.
+ * Contour following the classic makeup chart: forehead corner / temple,
+ * cheekbone hollow (main diagonal), nose sides, jawline, and a subtle under-chin.
+ * High points (malar apex, nose bridge center, forehead center, chin pad) stay clear.
  */
 function paintContour(
   ctx: CanvasRenderingContext2D,
@@ -192,48 +191,38 @@ function paintContour(
     if (soft > 0) paintColorThroughMask(ctx, m, hex, alpha * soft, 'soft-light')
   }
 
+  // Classic makeup-chart contour zones (see reference): forehead/temple,
+  // cheekbone hollow (main), nose sides, jawline — plus a subtle under-chin.
   paintInsideFaceClip(ctx, faceClip, width, height, () => {
     for (const side of ['left', 'right'] as const) {
-      // 1) Temporal — lateral forehead near temporal hairline → zygoma
+      // 1) Forehead corner + temple (along the hairline)
       paintSoft(
         temporalRegionMask(landmarks, side, width, height, minSide),
-        0.16,
-        0.24,
+        0.34,
+        0.32,
       )
-      // 2–3) Main kontura: starts directly under the blush apple → runs to the ear
+      // 2) Cheekbone hollow — the main diagonal, below the cheekbone
       paintSoft(
         submalarHollowMask(landmarks, side, width, height, minSide),
-        0.7,
-        0.48,
+        0.78,
+        0.5,
       )
-      // 4) Mandibular — inferior border of mandible, angle → toward chin (not chin pad)
+      // 3) Jawline — along the inferior border of the mandible
       paintSoft(
         mandibularBorderMask(landmarks, side, width, height, minSide),
+        0.46,
         0.36,
-        0.3,
       )
-      // 5) Masseteric — very subtle lateral lower-cheek slim
-      paintSoft(
-        massetericMask(landmarks, side, width, height, minSide),
-        0.14,
-        0.2,
-      )
-      // 6) Nasal dorsum sides — narrow, light
+      // 4) Nose sides — two narrow lines down the bridge
       paintSoft(
         nasalDorsumSideMask(landmarks, side, width, height, minSide),
-        0.14,
-        0.18,
-      )
-      // 7) Alar / tip sides
-      paintSoft(
-        nasalAlarMask(landmarks, side, width, height, minSide),
-        0.1,
-        0.14,
+        0.22,
+        0.22,
       )
     }
 
-    // 8) Submental — soft shadow under chin (cervicomental angle)
-    paintSoft(submentalMask(landmarks, width, height, minSide), 0.22, 0.26)
+    // 5) Subtle shadow under the chin (cervicomental angle)
+    paintSoft(submentalMask(landmarks, width, height, minSide), 0.16, 0.2)
   })
 }
 
@@ -308,7 +297,11 @@ function requireLm(
   return p ? { x: clamp01(p.x), y: clamp01(p.y) } : null
 }
 
-/** 1) Temporal region — soft contour along lateral forehead near temporal hairline. */
+/**
+ * 1) Forehead corner + temple — like the reference chart: a soft stroke that
+ * follows the hairline from the upper-forehead corner down the temple toward
+ * the top of the cheekbone. Keeps the center forehead (highlight) clear.
+ */
 function temporalRegionMask(
   landmarks: FaceLandmarkPoint[],
   side: ContourSide,
@@ -316,32 +309,41 @@ function temporalRegionMask(
   height: number,
   minSide: number,
 ): HTMLCanvasElement {
+  const foreheadTop = requireLm(landmarks, side === 'left' ? 67 : 297)
+  const hairSide = requireLm(landmarks, side === 'left' ? 54 : 284)
   const temple = requireLm(landmarks, side === 'left' ? 127 : 356)
-  const hair = requireLm(landmarks, side === 'left' ? 54 : 284)
-  const brow = requireLm(landmarks, side === 'left' ? 70 : 300)
+  const browTail = requireLm(landmarks, side === 'left' ? 70 : 300)
   const zygoma = requireLm(landmarks, side === 'left' ? 234 : 454)
   const mask = createCanvas(width, height)
   const mctx = mask.getContext('2d')
-  if (!mctx || !temple || !hair || !brow || !zygoma) return mask
+  if (!mctx || !foreheadTop || !hairSide || !temple || !browTail || !zygoma) {
+    return mask
+  }
 
   const faceScale = estimateContourFaceScale(landmarks)
-  // Stay near the hairline / ear — only a tiny on-face inset (front-facing photos).
-  const inset = faceScale * 0.012 * (side === 'left' ? 1 : -1)
+  // Small inward inset so the band sits just inside the hairline, not on it.
+  const inset = faceScale * 0.02 * (side === 'left' ? 1 : -1)
+  // Upper-forehead corner, following the hairline.
   const start = {
-    x: clamp01(hair.x * 0.5 + temple.x * 0.4 + zygoma.x * 0.1 + inset),
-    y: clamp01(hair.y * 0.55 + temple.y * 0.35 + brow.y * 0.1),
+    x: clamp01(foreheadTop.x * 0.5 + hairSide.x * 0.5 + inset),
+    y: clamp01(foreheadTop.y * 0.55 + hairSide.y * 0.45),
   }
+  // Temple.
+  const mid = {
+    x: clamp01(temple.x * 0.7 + hairSide.x * 0.3 + inset * 0.6),
+    y: clamp01(temple.y * 0.6 + browTail.y * 0.4),
+  }
+  // Top of the cheekbone / lateral orbital rim.
   const end = {
-    x: clamp01(temple.x * 0.25 + brow.x * 0.2 + zygoma.x * 0.55 + inset * 0.5),
-    y: clamp01(temple.y * 0.2 + brow.y * 0.35 + zygoma.y * 0.45),
+    x: clamp01(temple.x * 0.4 + zygoma.x * 0.4 + browTail.x * 0.2 + inset * 0.3),
+    y: clamp01(temple.y * 0.15 + browTail.y * 0.5 + zygoma.y * 0.35),
   }
-  const mid = lerpPoint(start, end, 0.55)
   strokeSoftContourBand(mctx, [start, mid, end], width, height, minSide, {
-    wide: 0.05,
-    mid: 0.03,
-    core: 0.016,
+    wide: 0.055,
+    mid: 0.034,
+    core: 0.018,
   })
-  return featherMask(mask, minSide * 0.018)
+  return featherMask(mask, minSide * 0.02)
 }
 
 /**
@@ -471,42 +473,7 @@ function mandibularBorderMask(
 }
 
 /**
- * 5) Masseteric — very subtle lateral lower-cheek slim, blends into mandibular.
- */
-function massetericMask(
-  landmarks: FaceLandmarkPoint[],
-  side: ContourSide,
-  width: number,
-  height: number,
-  minSide: number,
-): HTMLCanvasElement {
-  const angle = requireLm(landmarks, side === 'left' ? 172 : 397)
-  const masseter = requireLm(landmarks, side === 'left' ? 192 : 416)
-  const cheek = requireLm(landmarks, side === 'left' ? 187 : 411)
-  const mask = createCanvas(width, height)
-  const mctx = mask.getContext('2d')
-  if (!mctx || !angle || !masseter || !cheek) return mask
-
-  const faceScale = estimateContourFaceScale(landmarks)
-  const inset = faceScale * 0.012 * (side === 'left' ? 1 : -1)
-  // Weight toward the outer jaw/masseter, away from the nose.
-  const cx =
-    (masseter.x * 0.35 + cheek.x * 0.2 + angle.x * 0.45 + inset) * width
-  const cy = (masseter.y * 0.4 + cheek.y * 0.2 + angle.y * 0.4) * height
-  fillSoftEllipse(
-    mctx,
-    cx,
-    cy,
-    minSide * 0.038,
-    minSide * 0.06,
-    0,
-    0.6,
-  )
-  return featherMask(mask, minSide * 0.018)
-}
-
-/**
- * 6) Nasal dorsum sides — two narrow symmetrical lines from medial brow → tip.
+ * Nasal dorsum sides — two narrow symmetrical lines from medial brow → tip.
  * Keep off the central nasal dorsum highlight.
  */
 function nasalDorsumSideMask(
@@ -548,40 +515,6 @@ function nasalDorsumSideMask(
     core: 0.006,
   })
   return featherMask(mask, minSide * 0.01)
-}
-
-/** 7) Nasal tip / alar — small contour on lateral alar + under tip. */
-function nasalAlarMask(
-  landmarks: FaceLandmarkPoint[],
-  side: ContourSide,
-  width: number,
-  height: number,
-  minSide: number,
-): HTMLCanvasElement {
-  const tip = requireLm(landmarks, 4)
-  const alar = requireLm(landmarks, side === 'left' ? 48 : 278)
-  const subnasale = requireLm(landmarks, 2)
-  const mask = createCanvas(width, height)
-  const mctx = mask.getContext('2d')
-  if (!mctx || !tip || !alar || !subnasale) return mask
-
-  const cx = (alar.x * 0.65 + tip.x * 0.2 + subnasale.x * 0.15) * width
-  const cy = (alar.y * 0.55 + tip.y * 0.25 + subnasale.y * 0.2) * height
-  fillSoftEllipse(mctx, cx, cy, minSide * 0.028, minSide * 0.022, 0, 0.7)
-
-  // Soft shade just beneath the tip (once — both sides share; still light).
-  if (side === 'left') {
-    fillSoftEllipse(
-      mctx,
-      tip.x * width,
-      (tip.y * 0.35 + subnasale.y * 0.65) * height,
-      minSide * 0.03,
-      minSide * 0.016,
-      0,
-      0.55,
-    )
-  }
-  return featherMask(mask, minSide * 0.012)
 }
 
 /**
