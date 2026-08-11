@@ -204,19 +204,13 @@ function paintContour(
         0.34,
         0.32,
       )
-      // 2) Cheekbone hollow — the main diagonal, below the cheekbone
+      // 2) Main side contour — ONE connected line: cheekbone hollow → jawline
       paintSoft(
-        submalarHollowMask(landmarks, side, width, height, minSide),
-        0.78,
-        0.5,
-      )
-      // 3) Jawline — along the inferior border of the mandible
-      paintSoft(
-        mandibularBorderMask(landmarks, side, width, height, minSide),
+        sideContourMask(landmarks, side, width, height, minSide),
+        0.7,
         0.46,
-        0.36,
       )
-      // 4) Nose sides — two narrow lines down the bridge
+      // 3) Nose sides — two narrow lines down the bridge
       paintSoft(
         nasalDorsumSideMask(landmarks, side, width, height, minSide),
         0.22,
@@ -224,7 +218,7 @@ function paintContour(
       )
     }
 
-    // 5) Subtle shadow under the chin (cervicomental angle)
+    // 4) Subtle shadow under the chin (cervicomental angle)
     paintSoft(submentalMask(landmarks, width, height, minSide), 0.16, 0.2)
   })
 }
@@ -350,12 +344,13 @@ function temporalRegionMask(
 }
 
 /**
- * 2–3) Zygomatic / submalar — the main kontura in the buccal hollow.
- * The band is forced to sit BELOW the cheekbone (below the blush): a diagonal
- * from just under/in-front of the ear, down through the deepest hollow, angling
- * toward the mouth corner. Never rides on the malar prominence where blush lives.
+ * Main side contour as ONE continuous connected line (like the makeup chart):
+ * front (under the cheekbone, toward the mouth) → deepest buccal hollow → ear
+ * pivot → down the mandibular angle → along the jawline → toward the chin.
+ * Drawn as a single stroke so the cheekbone-hollow and jawline are never
+ * disconnected. The cheek portion is forced below the cheekbone (below blush).
  */
-function submalarHollowMask(
+function sideContourMask(
   landmarks: FaceLandmarkPoint[],
   side: ContourSide,
   width: number,
@@ -370,14 +365,21 @@ function submalarHollowMask(
   const preauricular = requireLm(landmarks, side === 'left' ? 234 : 454)
   const belowEar = requireLm(landmarks, side === 'left' ? 93 : 323)
   const mouth = requireLm(landmarks, side === 'left' ? 61 : 291)
+  const jawAngle = requireLm(landmarks, side === 'left' ? 172 : 397)
+  const jawMid = requireLm(landmarks, side === 'left' ? 136 : 365)
+  const nearChin = requireLm(landmarks, side === 'left' ? 150 : 379)
+  const chin = requireLm(landmarks, 152)
   const mask = createCanvas(width, height)
   const mctx = mask.getContext('2d')
-  if (!mctx || !apple || !ridge || !preauricular || !mouth) {
+  if (
+    !mctx || !apple || !ridge || !preauricular || !mouth ||
+    !jawAngle || !jawMid || !nearChin || !chin
+  ) {
     return mask
   }
 
   const faceScale = estimateContourFaceScale(landmarks)
-  // Reconstruct the painted blush center so the contour can hug just beneath it.
+  // Reconstruct the painted blush center so the cheek portion hugs just beneath it.
   const medial = faceScale * 0.055 * (side === 'left' ? 1 : -1)
   const blushCy = clamp01(
     apple.y * 0.5 +
@@ -385,7 +387,6 @@ function submalarHollowMask(
       ridge.y * 0.15 +
       faceScale * 0.02,
   )
-  // Every band point must clear the cheekbone — force it into the hollow below.
   const below = (y: number, m: number) =>
     clamp01(Math.max(y, blushCy + faceScale * m))
 
@@ -395,84 +396,55 @@ function submalarHollowMask(
   const midCy = midCheekLow?.y ?? apple.y
   const earLowX = belowEar?.x ?? preauricular.x
   const earLowY = belowEar?.y ?? preauricular.y
+  const jawInset = faceScale * 0.01 * (side === 'left' ? 1 : -1)
+  const jawUp = faceScale * 0.004
 
-  // Ear end (upper): just in front of / below the top of the ear, under the arch.
-  const ear = {
-    x: clamp01(preauricular.x * 0.7 + earLowX * 0.2 + ridge.x * 0.1),
-    y: below(preauricular.y * 0.45 + earLowY * 0.55, 0.05),
-  }
-  // Mid: deepest part of the buccal hollow, well below the zygomatic bone.
-  const mid = {
-    x: clamp01(midCx * 0.45 + ridge.x * 0.2 + preauricular.x * 0.35 + medial * 0.4),
-    y: below(midCy * 0.5 + lowCy * 0.5, 0.095),
-  }
-  // Front end (lower): angle down toward the mouth corner, staying in the hollow.
+  // Cheek portion: front (toward mouth) → hollow → ear pivot.
   const front = {
     x: clamp01(lowCx * 0.5 + apple.x * 0.2 + mouth.x * 0.3 + medial * 0.6),
     y: below(lowCy * 0.6 + mouth.y * 0.4, 0.11),
   }
+  const hollow = {
+    x: clamp01(midCx * 0.45 + ridge.x * 0.2 + preauricular.x * 0.35 + medial * 0.4),
+    y: below(midCy * 0.5 + lowCy * 0.5, 0.095),
+  }
+  const ear = {
+    x: clamp01(preauricular.x * 0.7 + earLowX * 0.2 + ridge.x * 0.1),
+    y: below(preauricular.y * 0.45 + earLowY * 0.55, 0.05),
+  }
+  // Jaw portion: ear → mandibular angle → mid jaw → toward chin.
+  const angle = {
+    x: clamp01(jawAngle.x + jawInset),
+    y: clamp01(jawAngle.y - jawUp),
+  }
+  const jaw = {
+    x: clamp01(jawMid.x + jawInset * 0.5),
+    y: clamp01(jawMid.y - jawUp),
+  }
+  const towardChin = lerpPoint(nearChin, chin, 0.12)
+  towardChin.x = clamp01(towardChin.x + jawInset * 0.2)
+  towardChin.y = clamp01(towardChin.y - jawUp)
 
-  strokeSoftContourBand(mctx, [ear, mid, front], width, height, minSide, {
-    wide: 0.05,
-    mid: 0.03,
-    core: 0.016,
-  })
-  // Soft fill weighted to the hollow (mid), never up on the blush apex.
+  // Single connected stroke: cheek hollow flows into the jawline via the ear.
+  strokeSoftContourBand(
+    mctx,
+    [front, hollow, ear, angle, jaw, towardChin],
+    width,
+    height,
+    minSide,
+    { wide: 0.05, mid: 0.03, core: 0.016 },
+  )
+  // Extra depth in the buccal hollow (the main shadow of the chart).
   fillSoftEllipse(
     mctx,
-    (ear.x * 0.25 + mid.x * 0.55 + front.x * 0.2) * width,
-    (ear.y * 0.25 + mid.y * 0.55 + front.y * 0.2) * height,
+    (front.x * 0.2 + hollow.x * 0.55 + ear.x * 0.25) * width,
+    (front.y * 0.2 + hollow.y * 0.55 + ear.y * 0.25) * height,
     minSide * 0.058,
     minSide * 0.024,
-    Math.atan2((front.y - ear.y) * height, (front.x - ear.x) * width),
-    0.75,
+    Math.atan2((ear.y - front.y) * height, (ear.x - front.x) * width),
+    0.7,
   )
   return featherMask(mask, minSide * 0.016)
-}
-
-/**
- * 4) Mandibular — immediately inferior to / along inferior border of mandible.
- * Mandibular angle → toward chin; stay under the jawline, off the chin pad.
- */
-function mandibularBorderMask(
-  landmarks: FaceLandmarkPoint[],
-  side: ContourSide,
-  width: number,
-  height: number,
-  minSide: number,
-): HTMLCanvasElement {
-  const angle = requireLm(landmarks, side === 'left' ? 172 : 397)
-  const mid = requireLm(landmarks, side === 'left' ? 136 : 365)
-  const nearChin = requireLm(landmarks, side === 'left' ? 150 : 379)
-  const chin = requireLm(landmarks, 152)
-  const mask = createCanvas(width, height)
-  const mctx = mask.getContext('2d')
-  if (!mctx || !angle || !mid || !nearChin || !chin) return mask
-
-  const faceScale = estimateContourFaceScale(landmarks)
-  // Stay on the outer jaw border (near ear/angle), not pulled toward center.
-  const inset = faceScale * 0.01 * (side === 'left' ? 1 : -1)
-  const up = faceScale * 0.004
-
-  const p0 = {
-    x: clamp01(angle.x + inset),
-    y: clamp01(angle.y - up),
-  }
-  const p1 = {
-    x: clamp01(mid.x + inset * 0.5),
-    y: clamp01(mid.y - up),
-  }
-  // Stop well before the central chin prominence.
-  const p2 = lerpPoint(nearChin, chin, 0.12)
-  p2.x = clamp01(p2.x + inset * 0.2)
-  p2.y = clamp01(p2.y - up)
-
-  strokeSoftContourBand(mctx, [p0, p1, p2], width, height, minSide, {
-    wide: 0.044,
-    mid: 0.028,
-    core: 0.015,
-  })
-  return featherMask(mask, minSide * 0.014)
 }
 
 /**
