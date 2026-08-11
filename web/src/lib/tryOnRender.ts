@@ -345,10 +345,10 @@ function temporalRegionMask(
 }
 
 /**
- * 2–3) Zygomatic / submalar — main kontura under the blush apple → ear.
- * Starts directly beneath the cheek blush circle and runs outward to the
- * preauricular / ear landmark (even when that side is foreshortened in a portrait).
- * Does NOT sit on the highest malar prominence (blush lives there).
+ * 2–3) Zygomatic / submalar — the main kontura in the buccal hollow.
+ * The band is forced to sit BELOW the cheekbone (below the blush): a diagonal
+ * from just under/in-front of the ear, down through the deepest hollow, angling
+ * toward the mouth corner. Never rides on the malar prominence where blush lives.
  */
 function submalarHollowMask(
   landmarks: FaceLandmarkPoint[],
@@ -359,63 +359,67 @@ function submalarHollowMask(
 ): HTMLCanvasElement {
   const apple = requireLm(landmarks, side === 'left' ? 205 : 425)
   const medialApple = requireLm(landmarks, side === 'left' ? 50 : 280)
-  const zygoma = requireLm(landmarks, side === 'left' ? 123 : 352)
   const ridge = requireLm(landmarks, side === 'left' ? 116 : 345)
-  const midCheek = requireLm(landmarks, side === 'left' ? 147 : 376)
+  const lowCheek = requireLm(landmarks, side === 'left' ? 187 : 411)
+  const midCheekLow = requireLm(landmarks, side === 'left' ? 147 : 376)
   const preauricular = requireLm(landmarks, side === 'left' ? 234 : 454)
+  const belowEar = requireLm(landmarks, side === 'left' ? 93 : 323)
+  const mouth = requireLm(landmarks, side === 'left' ? 61 : 291)
   const mask = createCanvas(width, height)
   const mctx = mask.getContext('2d')
-  if (!mctx || !apple || !zygoma || !ridge || !preauricular) {
+  if (!mctx || !apple || !ridge || !preauricular || !mouth) {
     return mask
   }
 
   const faceScale = estimateContourFaceScale(landmarks)
-  // Match blush medial bias so the contour origin sits under the painted circle.
+  // Reconstruct the painted blush center so the contour can hug just beneath it.
   const medial = faceScale * 0.055 * (side === 'left' ? 1 : -1)
-  const blushCx = clamp01(
-    apple.x * 0.45 + (medialApple?.x ?? apple.x) * 0.4 + zygoma.x * 0.15 + medial,
-  )
   const blushCy = clamp01(
-    apple.y * 0.5 + (medialApple?.y ?? apple.y) * 0.35 + ridge.y * 0.15 + faceScale * 0.02,
+    apple.y * 0.5 +
+      (medialApple?.y ?? apple.y) * 0.35 +
+      ridge.y * 0.15 +
+      faceScale * 0.02,
   )
+  // Every band point must clear the cheekbone — force it into the hollow below.
+  const below = (y: number, m: number) =>
+    clamp01(Math.max(y, blushCy + faceScale * m))
 
-  // Start just under the blush circle (slightly below its center).
-  const start = {
-    x: blushCx,
-    y: clamp01(blushCy + faceScale * 0.055),
+  const lowCx = lowCheek?.x ?? apple.x
+  const lowCy = lowCheek?.y ?? apple.y
+  const midCx = midCheekLow?.x ?? apple.x
+  const midCy = midCheekLow?.y ?? apple.y
+  const earLowX = belowEar?.x ?? preauricular.x
+  const earLowY = belowEar?.y ?? preauricular.y
+
+  // Ear end (upper): just in front of / below the top of the ear, under the arch.
+  const ear = {
+    x: clamp01(preauricular.x * 0.7 + earLowX * 0.2 + ridge.x * 0.1),
+    y: below(preauricular.y * 0.45 + earLowY * 0.55, 0.05),
   }
-  // Mid: outer zygoma / mid-cheek, still below the arch.
+  // Mid: deepest part of the buccal hollow, well below the zygomatic bone.
   const mid = {
-    x: clamp01(
-      (midCheek?.x ?? zygoma.x) * 0.35 + zygoma.x * 0.35 + ridge.x * 0.2 + preauricular.x * 0.1,
-    ),
-    y: clamp01(
-      start.y * 0.35 +
-        (midCheek?.y ?? zygoma.y) * 0.35 +
-        zygoma.y * 0.2 +
-        ridge.y * 0.1 +
-        faceScale * 0.01,
-    ),
+    x: clamp01(midCx * 0.45 + ridge.x * 0.2 + preauricular.x * 0.35 + medial * 0.4),
+    y: below(midCy * 0.5 + lowCy * 0.5, 0.095),
   }
-  // End at the ear — keep the line even when the portrait crops that side.
-  const end = {
-    x: clamp01(preauricular.x * 0.85 + zygoma.x * 0.15),
-    y: clamp01(preauricular.y * 0.55 + mid.y * 0.35 + start.y * 0.1),
+  // Front end (lower): angle down toward the mouth corner, staying in the hollow.
+  const front = {
+    x: clamp01(lowCx * 0.5 + apple.x * 0.2 + mouth.x * 0.3 + medial * 0.6),
+    y: below(lowCy * 0.6 + mouth.y * 0.4, 0.11),
   }
 
-  strokeSoftContourBand(mctx, [start, mid, end], width, height, minSide, {
-    wide: 0.052,
-    mid: 0.032,
-    core: 0.018,
+  strokeSoftContourBand(mctx, [ear, mid, front], width, height, minSide, {
+    wide: 0.05,
+    mid: 0.03,
+    core: 0.016,
   })
-  // Soft fill along the band (under apple → ear), not on the blush apex.
+  // Soft fill weighted to the hollow (mid), never up on the blush apex.
   fillSoftEllipse(
     mctx,
-    (start.x * 0.2 + mid.x * 0.55 + end.x * 0.25) * width,
-    (start.y * 0.25 + mid.y * 0.55 + end.y * 0.2) * height,
-    minSide * 0.06,
-    minSide * 0.026,
-    Math.atan2((end.y - start.y) * height, (end.x - start.x) * width),
+    (ear.x * 0.25 + mid.x * 0.55 + front.x * 0.2) * width,
+    (ear.y * 0.25 + mid.y * 0.55 + front.y * 0.2) * height,
+    minSide * 0.058,
+    minSide * 0.024,
+    Math.atan2((front.y - ear.y) * height, (front.x - ear.x) * width),
     0.75,
   )
   return featherMask(mask, minSide * 0.016)
