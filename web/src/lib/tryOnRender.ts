@@ -83,6 +83,9 @@ export function paintSoftMakeup(options: {
     // Eye holes: from eyeshadow lower edge → under-eye upper edge (+ mouth).
     punchFoundationOpenings(hard, landmarks, polygons, width, height)
     const mask = featherMask(hard, minSide * 0.022)
+    // Re-cut the eye openings AFTER feathering — otherwise the blur bleeds
+    // foundation back over the sclera (whites of the eyes).
+    subtractFeatheredEyeHoles(mask, landmarks, polygons, width, height, minSide * 0.01)
     paintColorThroughMask(ctx, mask, layers.faceBase.product!.shadeHex, alpha, 'soft-light')
     paintColorThroughMask(ctx, mask, layers.faceBase.product!.shadeHex, alpha * 0.4, 'color')
   })
@@ -1035,13 +1038,13 @@ function softCircleMask(
   const cx = center.x * width
   const cy = center.y * height
   const r = Math.max(4, radiusNorm * Math.min(width, height))
-  // Flat plateau + thin soft rim: intensity (alpha) deepens the color inside a
-  // FIXED circle instead of revealing a long faint tail (which looked like the
-  // circle growing / spilling past the face when intensity increased).
+  // Center is strongest and fades smoothly to nothing at the rim, like a real
+  // blush diffuse — no hard disc edge. Radius stays small + clipped to the face.
   const gradient = mctx.createRadialGradient(cx, cy, 0, cx, cy, r)
   gradient.addColorStop(0, 'rgba(255,255,255,1)')
-  gradient.addColorStop(0.78, 'rgba(255,255,255,1)')
-  gradient.addColorStop(0.92, 'rgba(255,255,255,0.72)')
+  gradient.addColorStop(0.3, 'rgba(255,255,255,0.82)')
+  gradient.addColorStop(0.6, 'rgba(255,255,255,0.48)')
+  gradient.addColorStop(0.85, 'rgba(255,255,255,0.18)')
   gradient.addColorStop(1, 'rgba(255,255,255,0)')
   mctx.fillStyle = gradient
   mctx.beginPath()
@@ -1167,6 +1170,39 @@ function punchFoundationOpenings(
   }
   // Inner mouth only — covers teeth/cavity when open; thin slit when closed.
   punchRingFromMask(mask, landmarks, INNER_MOUTH, width, height, 0.004)
+}
+
+/**
+ * After the foundation mask is feathered, subtract the eye openings again with
+ * their own soft edge so the sclera/iris stay uncovered (the main feather would
+ * otherwise blur foundation back into the eyes).
+ */
+function subtractFeatheredEyeHoles(
+  mask: HTMLCanvasElement,
+  landmarks: FaceLandmarkPoint[],
+  polygons: EditableTryOnPolygon[],
+  width: number,
+  height: number,
+  blurPx: number,
+): void {
+  const holes = createCanvas(width, height)
+  const hc = holes.getContext('2d')
+  if (!hc) return
+  hc.fillStyle = '#fff'
+  for (const side of ['left', 'right'] as const) {
+    const ring = foundationEyeHoleRing(landmarks, polygons, side)
+    if (ring.length < 3) continue
+    const expanded = expandRing(ring, 0.012)
+    pathSmoothRing(hc, expanded, width, height)
+    hc.fill()
+  }
+  const soft = featherMask(holes, blurPx)
+  const mctx = mask.getContext('2d')
+  if (!mctx) return
+  mctx.save()
+  mctx.globalCompositeOperation = 'destination-out'
+  mctx.drawImage(soft, 0, 0)
+  mctx.restore()
 }
 
 /** Lower lash / upper-lid chains that form the eyeshadow↔under-eye gap. */
