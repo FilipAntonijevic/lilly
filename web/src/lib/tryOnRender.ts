@@ -114,8 +114,8 @@ export function paintSoftMakeup(options: {
   })
 
   paintZoneIfActive(layers, 'cheeks', (alpha) => {
-    // Interior oval (no ear tips) + hard inset — blush never past face silhouette.
-    const faceClip = faceInteriorClipRing(landmarks, polygons, 0.034)
+    // Tighter interior oval — blush stays on-face even at higher intensity.
+    const faceClip = faceInteriorClipRing(landmarks, polygons, 0.048)
     for (const id of ['leftCheek', 'rightCheek'] as const) {
       const poly = polygons.find((p) => p.id === id)
       if (!poly || poly.kind !== 'circle' || poly.points.length < 2) continue
@@ -124,7 +124,7 @@ export function paintSoftMakeup(options: {
         circleRadius(poly),
         width,
         height,
-        minSide * 0.028,
+        minSide * 0.022,
       )
       if (faceClip) {
         mask = clipMaskToRing(mask, faceClip, width, height)

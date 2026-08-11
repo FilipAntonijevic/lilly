@@ -57,22 +57,9 @@ export const CIRCLE_REGIONS: ReadonlySet<TryOnPolygonId> = new Set([
   'rightCheek',
 ])
 
-/** Outer cheek anchors — blended with medial apple landmarks in buildTryOnPolygons. */
 const CIRCLE_CENTER_INDEX: Partial<Record<TryOnPolygonId, number>> = {
   leftCheek: 205,
   rightCheek: 425,
-}
-
-/** Medial cheek-apple landmarks (blush sits on the apple, not the face side). */
-const CHEEK_APPLE_INDEX: Partial<Record<TryOnPolygonId, number>> = {
-  leftCheek: 50,
-  rightCheek: 280,
-}
-
-/** Upper cheek / zygoma points — pull blush slightly onto the high apple. */
-const CHEEK_HIGH_INDEX: Partial<Record<TryOnPolygonId, number>> = {
-  leftCheek: 117,
-  rightCheek: 346,
 }
 
 export const TRYON_BLEND: Record<FaceZoneId, GlobalCompositeOperation> = {
@@ -87,8 +74,8 @@ export const TRYON_BLEND: Record<FaceZoneId, GlobalCompositeOperation> = {
 export const TRYON_BASE_ALPHA: Record<FaceZoneId, number> = {
   faceBase: 0.52,
   underEye: 0.68,
-  // Cap ~25% lower so max slider stays on-skin (less spill at full intensity).
-  cheeks: 0.585,
+  // Stronger blush payoff on the apple; still clipped inside the face oval.
+  cheeks: 0.78,
   contour: 0.75,
   lips: 0.95,
   // 2× previous strength: slider 50% ≈ old 100%, slider 100% ≈ old 200%.
@@ -131,24 +118,21 @@ export function buildTryOnPolygons(
 
   for (const id of Object.keys(TRYON_POLYGON_INDICES) as TryOnPolygonId[]) {
     if (CIRCLE_REGIONS.has(id)) {
-      const outer = CIRCLE_CENTER_INDEX[id] != null ? landmarks[CIRCLE_CENTER_INDEX[id]!] : null
-      const apple = CHEEK_APPLE_INDEX[id] != null ? landmarks[CHEEK_APPLE_INDEX[id]!] : null
-      const high = CHEEK_HIGH_INDEX[id] != null ? landmarks[CHEEK_HIGH_INDEX[id]!] : null
-      if (!outer && !apple) continue
-      // Weighted apple: mostly medial cheek (50/280), some outer + high zygoma.
-      // Keeps blush on the cheek apple ("on the cheeks"), not the side strip.
-      const ox = outer?.x ?? apple!.x
-      const oy = outer?.y ?? apple!.y
-      const ax = apple?.x ?? ox
-      const ay = apple?.y ?? oy
-      const hx = high?.x ?? ax
-      const hy = high?.y ?? ay
-      const center = {
-        x: clamp01(ox * 0.22 + ax * 0.58 + hx * 0.2),
-        y: clamp01(oy * 0.2 + ay * 0.5 + hy * 0.3),
+      const centerIdx = CIRCLE_CENTER_INDEX[id]
+      const centerLm = centerIdx != null ? landmarks[centerIdx] : null
+      if (!centerLm) continue
+      // faceScale ≈ inter-ocular distance in norm space (~0.12–0.25).
+      // Keep blush on the apple; paint path also clips to the face oval.
+      const radius = faceScale * 0.34
+      const center = { x: clamp01(centerLm.x), y: clamp01(centerLm.y) }
+      // Slightly toward the nose / down so the soft circle stays on skin.
+      if (id === 'leftCheek') {
+        center.x = clamp01(center.x + faceScale * 0.02)
+        center.y = clamp01(center.y + faceScale * 0.03)
+      } else if (id === 'rightCheek') {
+        center.x = clamp01(center.x - faceScale * 0.02)
+        center.y = clamp01(center.y + faceScale * 0.03)
       }
-      // faceScale ≈ inter-ocular distance; compact apple brush.
-      const radius = faceScale * 0.38
       out.push({
         id,
         zoneId: TRYON_ZONE_BY_POLYGON[id],
