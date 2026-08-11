@@ -140,11 +140,14 @@ export function buildTryOnPolygons(
       const outward = faceScale * 0.05
       if (id === 'leftCheek') {
         center.x = clamp01(center.x - outward)
-        center.y = clamp01(center.y - faceScale * 0.03)
+        center.y = clamp01(center.y - faceScale * 0.01)
       } else if (id === 'rightCheek') {
         center.x = clamp01(center.x + outward)
-        center.y = clamp01(center.y - faceScale * 0.03)
+        center.y = clamp01(center.y - faceScale * 0.01)
       }
+      // Fine tune: nudge slightly left and slightly lower.
+      center.x = clamp01(center.x - faceScale * 0.02)
+      center.y = clamp01(center.y + faceScale * 0.02)
       out.push({
         id,
         zoneId: TRYON_ZONE_BY_POLYGON[id],
